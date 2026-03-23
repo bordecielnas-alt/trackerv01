@@ -20,12 +20,16 @@ import {
   type DailyEntry,
 } from "@/lib/tracking-store";
 
+// Persist selected date across tab switches
+let persistedDate: Date = new Date();
+
 export default function TrackingPage() {
-  const [date, setDate] = useState<Date>(new Date());
+  const [date, setDate] = useState<Date>(persistedDate);
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
   const [formula, setFormula] = useState("");
+  const [isExistingEntry, setIsExistingEntry] = useState(false);
 
   const loadData = useCallback(() => {
     const settings = getSettings();
@@ -36,17 +40,24 @@ export default function TrackingPage() {
     if (entry) {
       setValues(entry.values);
       setComment(entry.comment);
+      setIsExistingEntry(true);
     } else {
       const defaults: Record<string, number> = {};
       settings.parameters.forEach((p) => (defaults[p.id] = p.defaultValue));
       setValues(defaults);
       setComment("");
+      setIsExistingEntry(false);
     }
   }, [date]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Persist date when it changes
+  useEffect(() => {
+    persistedDate = date;
+  }, [date]);
 
   const score = computeScore(values, parameters, formula);
 
@@ -57,7 +68,8 @@ export default function TrackingPage() {
       comment,
     };
     saveEntry(entry);
-    toast.success("Données enregistrées !");
+    setIsExistingEntry(true);
+    toast.success(isExistingEntry ? "Données mises à jour !" : "Données enregistrées !");
   };
 
   const handleValueChange = (paramId: string, val: number[]) => {
@@ -155,9 +167,18 @@ export default function TrackingPage() {
       </Card>
 
       {/* Save */}
-      <Button onClick={handleSave} className="w-full gap-2" size="lg">
+      <Button
+        onClick={handleSave}
+        className={cn(
+          "w-full gap-2",
+          isExistingEntry
+            ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            : "bg-green-600 text-white hover:bg-green-700"
+        )}
+        size="lg"
+      >
         <Save className="h-4 w-4" />
-        Enregistrer
+        {isExistingEntry ? "Mettre à jour" : "Enregistrer"}
       </Button>
     </div>
   );
