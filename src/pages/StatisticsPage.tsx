@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { subDays, subMonths, parseISO, isAfter, isBefore, format } from "date-fns";
+import { subDays, parseISO, isAfter, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -33,7 +33,9 @@ function linearRegression(data: { x: number; y: number }[]) {
   const sumY = data.reduce((s, d) => s + d.y, 0);
   const sumXY = data.reduce((s, d) => s + d.x * d.y, 0);
   const sumX2 = data.reduce((s, d) => s + d.x * d.x, 0);
-  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const denom = n * sumX2 - sumX * sumX;
+  if (denom === 0) return null;
+  const slope = (n * sumXY - sumX * sumY) / denom;
   const intercept = (sumY - slope * sumX) / n;
   return { slope, intercept };
 }
@@ -68,27 +70,46 @@ export default function StatisticsPage() {
         parameters.forEach((p) => {
           row[p.name] = e.values[p.id] ?? null;
         });
-        const score = computeScore(e.values, parameters, formula);
-        row["Score"] = score;
+        row["Score"] = computeScore(e.values, parameters, formula);
         return row;
       });
   }, [entries, parameters, formula, rangeDays]);
 
-  // Regression data for score
-  const regressionLine = useMemo(() => {
-    if (!showRegression) return null;
-    const pts = filteredData
+  // Compute regression lines for score + all visible params
+  const chartData = useMemo(() => {
+    if (!showRegression || chartType !== "line") return filteredData;
+
+    let data = filteredData.map((d) => ({ ...d }));
+
+    // Score regression
+    const scorePts = data
       .map((d, i) => ({ x: i, y: d["Score"] as number }))
       .filter((d) => d.y !== null && d.y !== undefined);
-    const reg = linearRegression(pts);
-    if (!reg) return null;
-    return filteredData.map((d, i) => ({
-      ...d,
-      regression: Math.round((reg.slope * i + reg.intercept) * 100) / 100,
-    }));
-  }, [filteredData, showRegression]);
+    const scoreReg = linearRegression(scorePts);
+    if (scoreReg) {
+      data = data.map((d, i) => ({
+        ...d,
+        "Score (tendance)": Math.round((scoreReg.slope * i + scoreReg.intercept) * 100) / 100,
+      }));
+    }
 
-  const chartData = regressionLine || filteredData;
+    // Parameter regressions
+    parameters.forEach((p) => {
+      if (!visibleParams.has(p.id)) return;
+      const pts = data
+        .map((d, i) => ({ x: i, y: d[p.name] as number }))
+        .filter((d) => d.y !== null && d.y !== undefined);
+      const reg = linearRegression(pts);
+      if (reg) {
+        data = data.map((d, i) => ({
+          ...d,
+          [`${p.name} (tendance)`]: Math.round((reg.slope * i + reg.intercept) * 100) / 100,
+        }));
+      }
+    });
+
+    return data;
+  }, [filteredData, showRegression, chartType, parameters, visibleParams]);
 
   const toggleParam = (id: string) => {
     setVisibleParams((prev) => {
@@ -103,9 +124,6 @@ export default function StatisticsPage() {
     const d = parseInt(customDays);
     if (d > 0) setRangeDays(d);
   };
-
-  const ChartComponent = chartType === "line" ? LineChart : BarChart;
-  const DataComponent = chartType === "line" ? Line : Bar;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -156,7 +174,7 @@ export default function StatisticsPage() {
       {/* Regression toggle */}
       <div className="flex items-center gap-2">
         <Switch checked={showRegression} onCheckedChange={setShowRegression} />
-        <Label className="text-sm">Régression linéaire (score)</Label>
+        <Label className="text-sm">Régression linéaire</Label>
       </div>
 
       {/* Parameter toggles */}
@@ -180,7 +198,7 @@ export default function StatisticsPage() {
         </div>
       )}
 
-      {/* Score chart (always visible) */}
+      {/* Score chart */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Score</CardTitle>
@@ -190,35 +208,28 @@ export default function StatisticsPage() {
             <p className="text-sm text-muted-foreground py-8 text-center">Pas de données</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <ChartComponent data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Legend />
-                {chartType === "line" ? (
-                  <Line
-                    type="monotone"
-                    dataKey="Score"
-                    stroke="hsl(174, 60%, 32%)"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                ) : (
+              {chartType === "line" ? (
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={{ r: 3 }} />
+                  {showRegression && (
+                    <Line type="monotone" dataKey="Score (tendance)" stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                  )}
+                </LineChart>
+              ) : (
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend />
                   <Bar dataKey="Score" fill="hsl(174, 60%, 32%)" radius={[4, 4, 0, 0]} />
-                )}
-                {showRegression && chartType === "line" && (
-                  <Line
-                    type="monotone"
-                    dataKey="regression"
-                    stroke="hsl(0, 72%, 51%)"
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={false}
-                    name="Tendance"
-                  />
-                )}
-              </ChartComponent>
+                </BarChart>
+              )}
             </ResponsiveContainer>
           )}
         </CardContent>
@@ -234,27 +245,26 @@ export default function StatisticsPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
-                <ChartComponent data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  {chartType === "line" ? (
-                    <Line
-                      type="monotone"
-                      dataKey={p.name}
-                      stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  ) : (
-                    <Bar
-                      dataKey={p.name}
-                      fill={CHART_COLORS[i % CHART_COLORS.length]}
-                      radius={[4, 4, 0, 0]}
-                    />
-                  )}
-                </ChartComponent>
+                {chartType === "line" ? (
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey={p.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
+                    {showRegression && (
+                      <Line type="monotone" dataKey={`${p.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                    )}
+                  </LineChart>
+                ) : (
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey={p.name} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
