@@ -3,20 +3,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Download, Upload } from "lucide-react";
+import { Download, Upload, Settings } from "lucide-react";
 import {
-  getSettings, getEntries, saveEntries,
-  type TrackingParameter, type DailyEntry,
+  getSettings, saveSettings, getEntries, saveEntries, computeScore,
+  type TrackingParameter, type TrackingSettings, type DailyEntry,
 } from "@/lib/tracking-store";
 
-function entriesToCsv(entries: DailyEntry[], parameters: TrackingParameter[]): string {
-  const headers = ["date", ...parameters.map((p) => p.name), "comment"];
+function entriesToCsv(entries: DailyEntry[], parameters: TrackingParameter[], formula: string): string {
+  const headers = ["date", "score", "comment", ...parameters.map((p) => p.name)];
   const rows = entries
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((e) => {
-      const vals = parameters.map((p) => String(e.values[p.id] ?? ""));
+      const score = computeScore(e.values, parameters, formula);
       const comment = `"${(e.comment || "").replace(/"/g, '""')}"`;
-      return [e.date, ...vals, comment].join(",");
+      const vals = parameters.map((p) => String(e.values[p.id] ?? ""));
+      return [e.date, score !== null ? String(score) : "", comment, ...vals].join(",");
     });
   return [headers.join(","), ...rows].join("\n");
 }
@@ -51,6 +52,59 @@ function csvToEntries(csv: string, parameters: TrackingParameter[]): DailyEntry[
   return entries;
 }
 
+function settingsToCsv(settings: TrackingSettings): string {
+  const lines = [
+    "type,name,defaultValue,min,max,step,order",
+    ...settings.parameters
+      .sort((a, b) => a.order - b.order)
+      .map((p) =>
+        ["parameter", `"${p.name.replace(/"/g, '""')}"`, p.defaultValue, p.min, p.max, p.step, p.order].join(",")
+      ),
+    "",
+    "type,value",
+    `formula,"${(settings.scoreFormula || "").replace(/"/g, '""')}"`,
+  ];
+  return lines.join("\n");
+}
+
+function csvToSettings(csv: string): TrackingSettings | null {
+  const lines = csv.trim().split("\n");
+  const parameters: TrackingParameter[] = [];
+  let scoreFormula = "";
+  let section: "params" | "formula" | null = null;
+
+  for (const line of lines) {
+    const cols = parseCsvLine(line);
+    if (cols[0]?.toLowerCase() === "type" && cols[1]?.toLowerCase() === "name") {
+      section = "params";
+      continue;
+    }
+    if (cols[0]?.toLowerCase() === "type" && cols[1]?.toLowerCase() === "value") {
+      section = "formula";
+      continue;
+    }
+    if (!cols[0]?.trim()) continue;
+
+    if (section === "params" && cols[0].toLowerCase() === "parameter") {
+      parameters.push({
+        id: crypto.randomUUID(),
+        name: cols[1] || "",
+        defaultValue: parseFloat(cols[2]) || 0,
+        min: parseFloat(cols[3]) || 0,
+        max: parseFloat(cols[4]) || 10,
+        step: parseFloat(cols[5]) || 1,
+        order: parseFloat(cols[6]) || parameters.length,
+      });
+    }
+    if (section === "formula" && cols[0].toLowerCase() === "formula") {
+      scoreFormula = cols[1] || "";
+    }
+  }
+
+  if (parameters.length === 0 && !scoreFormula) return null;
+  return { parameters, scoreFormula };
+}
+
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = "";
@@ -74,9 +128,12 @@ function parseCsvLine(line: string): string[] {
 export default function EditionPage() {
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [entries, setEntries] = useState<DailyEntry[]>([]);
+  const [formula, setFormula] = useState("");
 
   const reload = () => {
-    setParameters(getSettings().parameters);
+    const settings = getSettings();
+    setParameters(settings.parameters);
+    setFormula(settings.scoreFormula);
     setEntries(getEntries());
   };
 
@@ -106,15 +163,15 @@ export default function EditionPage() {
   };
 
   const handleExport = () => {
-    const csv = entriesToCsv(entries, parameters);
+    const csv = entriesToCsv(entries, parameters, formula);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tracking-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `tracking-data-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Export CSV téléchargé !");
+    toast.success("Export données CSV téléchargé !");
   };
 
   const handleImport = () => {
@@ -132,7 +189,6 @@ export default function EditionPage() {
           toast.error("Aucune donnée importée. Vérifiez le format du fichier.");
           return;
         }
-        // Merge: imported entries overwrite existing ones by date
         const merged = [...entries];
         imported.forEach((imp) => {
           const idx = merged.findIndex((e) => e.date === imp.date);
@@ -149,11 +205,59 @@ export default function EditionPage() {
     input.click();
   };
 
+  const handleExportConfig = () => {
+    const settings = getSettings();
+    const csv = settingsToCsv(settings);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tracking-config-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Export configuration CSV téléchargé !");
+  };
+
+  const handleImportConfig = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const csv = ev.target?.result as string;
+        const imported = csvToSettings(csv);
+        if (!imported) {
+          toast.error("Aucune configuration importée. Vérifiez le format.");
+          return;
+        }
+        saveSettings(imported);
+        setParameters(imported.parameters);
+        setFormula(imported.scoreFormula);
+        toast.success(`Configuration importée (${imported.parameters.length} paramètre(s)) !`);
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-foreground">Édition</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={handleImportConfig} className="gap-2">
+            <Settings className="h-4 w-4" />
+            <Upload className="h-4 w-4" />
+            Config
+          </Button>
+          <Button variant="outline" onClick={handleExportConfig} className="gap-2">
+            <Settings className="h-4 w-4" />
+            <Download className="h-4 w-4" />
+            Config
+          </Button>
           <Button variant="outline" onClick={handleImport} className="gap-2">
             <Upload className="h-4 w-4" />
             Importer CSV
@@ -181,50 +285,59 @@ export default function EditionPage() {
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground sticky left-0 bg-muted/50">
                     Date
                   </th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                    Score
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                    Commentaire
+                  </th>
                   {parameters.map((p) => (
                     <th key={p.id} className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
                       {p.name}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                    Commentaire
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {entries
                   .sort((a, b) => b.date.localeCompare(a.date))
-                  .map((entry) => (
-                    <tr key={entry.date} className="border-b border-border/50 hover:bg-accent/20">
-                      <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">
-                        {entry.date}
-                      </td>
-                      {parameters.map((p) => (
-                        <td key={p.id} className="px-3 py-2">
+                  .map((entry) => {
+                    const score = computeScore(entry.values, parameters, formula);
+                    return (
+                      <tr key={entry.date} className="border-b border-border/50 hover:bg-accent/20">
+                        <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">
+                          {entry.date}
+                        </td>
+                        <td className="px-3 py-2 text-center font-semibold text-primary tabular-nums">
+                          {score !== null ? score : "—"}
+                        </td>
+                        <td className="px-3 py-2">
                           <Input
-                            type="number"
-                            className="w-20 h-8 text-center mx-auto"
-                            value={entry.values[p.id] ?? ""}
+                            className="h-8 min-w-[150px]"
+                            value={entry.comment}
                             onChange={(e) =>
-                              handleValueChange(entry.date, p.id, e.target.value)
+                              handleCommentChange(entry.date, e.target.value)
                             }
-                            min={p.min}
-                            max={p.max}
-                            step={p.step}
                           />
                         </td>
-                      ))}
-                      <td className="px-3 py-2">
-                        <Input
-                          className="h-8 min-w-[150px]"
-                          value={entry.comment}
-                          onChange={(e) =>
-                            handleCommentChange(entry.date, e.target.value)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                        {parameters.map((p) => (
+                          <td key={p.id} className="px-3 py-2">
+                            <Input
+                              type="number"
+                              className="w-20 h-8 text-center mx-auto"
+                              value={entry.values[p.id] ?? ""}
+                              onChange={(e) =>
+                                handleValueChange(entry.date, p.id, e.target.value)
+                              }
+                              min={p.min}
+                              max={p.max}
+                              step={p.step}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </CardContent>
