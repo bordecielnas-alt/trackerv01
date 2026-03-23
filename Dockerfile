@@ -1,29 +1,23 @@
-# Étape 1 : Builder TypeScript
+# Étape 1 : Build Vite
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Installer les dépendances
 COPY package*.json ./
 RUN npm install
 
-# Copier le code
 COPY . .
-
-# Compiler le TypeScript
 RUN npm run build
 
-# Étape 2 : Image finale, légère
-FROM node:20-alpine
+# Étape 2 : Serveur Nginx pour les fichiers statiques
+FROM nginx:stable-alpine
 
-WORKDIR /app
+# Copier le build Vite dans Nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copier uniquement le build et les dépendances prod
-COPY package*.json ./
-RUN npm install --production
+# Config Nginx pour React Router (SPA)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /app/dist ./dist
+EXPOSE 80
 
-EXPOSE 3000
-
-CMD ["node", "dist/index.js"]
+CMD ["nginx", "-g", "daemon off;"]
