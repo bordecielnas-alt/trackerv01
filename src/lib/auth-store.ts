@@ -10,11 +10,21 @@ const DEFAULT_USERNAME = "admin";
 const DEFAULT_PASSWORD = "@Tracker@";
 
 async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  // crypto.subtle is only available in secure contexts (HTTPS).
+  // Fallback to a simple hash for HTTP (e.g. Docker local).
+  if (crypto.subtle) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  // Simple fallback hash (djb2-based, not cryptographic but functional for single-user local use)
+  let hash = 5381;
+  for (let i = 0; i < password.length; i++) {
+    hash = ((hash << 5) + hash + password.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16);
 }
 
 async function getCredentials(): Promise<Credentials> {
