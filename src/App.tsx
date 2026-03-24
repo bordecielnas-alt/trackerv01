@@ -1,35 +1,56 @@
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { isAuthenticated } from "@/lib/auth-store";
 import AppLayout from "@/components/AppLayout";
+import LoginPage from "@/pages/LoginPage";
 import TrackingPage from "@/pages/TrackingPage";
 import SettingsPage from "@/pages/SettingsPage";
 import StatisticsPage from "@/pages/StatisticsPage";
 import EditionPage from "@/pages/EditionPage";
+import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<TrackingPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/statistics" element={<StatisticsPage />} />
-            <Route path="/edition" element={<EditionPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [authed, setAuthed] = useState(isAuthenticated());
+
+  if (!authed) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <LoginPage onLogin={() => setAuthed(true)} />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppLayout onLogout={() => setAuthed(false)}>
+            <Routes>
+              <Route path="/" element={<TrackingPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/statistics" element={<StatisticsPage />} />
+              <Route path="/edition" element={<EditionPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppLayout>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

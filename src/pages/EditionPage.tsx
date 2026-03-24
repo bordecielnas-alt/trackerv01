@@ -251,12 +251,12 @@ export default function EditionPage() {
           <Button variant="outline" onClick={handleImportConfig} className="gap-2">
             <Settings className="h-4 w-4" />
             <Upload className="h-4 w-4" />
-            Config
+            Importer Config
           </Button>
           <Button variant="outline" onClick={handleExportConfig} className="gap-2">
             <Settings className="h-4 w-4" />
             <Download className="h-4 w-4" />
-            Config
+            Exporter Config
           </Button>
           <Button variant="outline" onClick={handleImport} className="gap-2">
             <Upload className="h-4 w-4" />
