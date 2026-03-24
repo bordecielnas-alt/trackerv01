@@ -1,20 +1,33 @@
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Settings, BarChart3, TableProperties } from "lucide-react";
+import { CalendarDays, Settings, BarChart3, TableProperties, ShieldCheck, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { logout } from "@/lib/auth-store";
 
 const navItems = [
   { to: "/", label: "Tracking", icon: CalendarDays },
   { to: "/settings", label: "Réglages", icon: Settings },
   { to: "/statistics", label: "Statistiques", icon: BarChart3 },
   { to: "/edition", label: "Édition", icon: TableProperties },
+  { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+interface AppLayoutProps {
+  children: React.ReactNode;
+  onLogout: () => void;
+}
+
+export default function AppLayout({ children, onLogout }: AppLayoutProps) {
+  const handleLogout = () => {
+    logout();
+    onLogout();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-sm">
         <div className="container flex h-14 items-center gap-6">
           <span className="text-lg font-bold text-primary tracking-tight">Tracker</span>
-          <nav className="flex gap-1">
+          <nav className="flex gap-1 flex-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -33,6 +46,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </NavLink>
             ))}
           </nav>
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground">
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Déconnexion</span>
+          </Button>
         </div>
       </header>
       <main className="container py-6">{children}</main>
