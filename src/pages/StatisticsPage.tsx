@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
-  getSettings, getEntries, computeScore, type TrackingParameter, type DailyEntry,
+  getSettingsAsync, getEntriesAsync, computeScore, type TrackingParameter, type DailyEntry,
 } from "@/lib/tracking-store";
 
 const CHART_COLORS = [
@@ -51,10 +51,13 @@ export default function StatisticsPage() {
   const [showRegression, setShowRegression] = useState(false);
 
   useEffect(() => {
-    const s = getSettings();
-    setParameters(s.parameters);
-    setFormula(s.scoreFormula);
-    setEntries(getEntries());
+    async function load() {
+      const s = await getSettingsAsync();
+      setParameters(s.parameters);
+      setFormula(s.scoreFormula);
+      setEntries(await getEntriesAsync());
+    }
+    load();
   }, []);
 
   const filteredData = useMemo(() => {

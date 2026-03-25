@@ -8,11 +8,15 @@ async function isApiAvailable(): Promise<boolean> {
   if (_apiAvailable !== null) return _apiAvailable;
   try {
     const res = await fetch("/api/health", { signal: AbortSignal.timeout(1500) });
-    _apiAvailable = res.ok;
+    if (!res.ok) { _apiAvailable = false; return false; }
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) { _apiAvailable = false; return false; }
+    const data = await res.json();
+    _apiAvailable = data && data.ok === true;
   } catch {
     _apiAvailable = false;
   }
-  return _apiAvailable;
+  return _apiAvailable!;
 }
 
 export async function apiGet<T>(endpoint: string, localStorageKey: string, fallback: T): Promise<T> {
