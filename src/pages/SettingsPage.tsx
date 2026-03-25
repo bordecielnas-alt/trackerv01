@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  getSettings,
-  saveSettings,
+  getSettingsAsync,
+  saveSettingsAsync,
   type TrackingParameter,
   type TrackingSettings,
 } from "@/lib/tracking-store";
@@ -37,11 +37,11 @@ export default function SettingsPage() {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setSettings(getSettings());
+    getSettingsAsync().then(setSettings);
   }, []);
 
-  const handleSaveFormula = () => {
-    saveSettings(settings);
+  const handleSaveFormula = async () => {
+    await saveSettingsAsync(settings);
     toast.success("Formule de score enregistrée");
   };
 
@@ -59,14 +59,14 @@ export default function SettingsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const updated = { ...settings, parameters: settings.parameters.filter((p) => p.id !== id) };
     setSettings(updated);
-    saveSettings(updated);
+    await saveSettingsAsync(updated);
     toast.success("Paramètre supprimé");
   };
 
-  const handleSaveParam = () => {
+  const handleSaveParam = async () => {
     if (!editParam.name.trim()) {
       toast.error("Le nom est requis");
       return;
@@ -79,7 +79,7 @@ export default function SettingsPage() {
     }
     const updated = { ...settings, parameters: params };
     setSettings(updated);
-    saveSettings(updated);
+    await saveSettingsAsync(updated);
     setDialogOpen(false);
     toast.success(isEditing ? "Paramètre modifié" : "Paramètre ajouté");
   };
@@ -88,7 +88,6 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Réglages</h1>
 
-      {/* Parameters list */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Paramètres</CardTitle>
@@ -128,7 +127,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Score formula */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Formule de score</CardTitle>
@@ -149,7 +147,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Param dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
