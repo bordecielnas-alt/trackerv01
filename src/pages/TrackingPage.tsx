@@ -11,16 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  getSettings,
-  getEntry,
-  saveEntry,
+  getSettingsAsync,
+  getEntriesAsync,
+  saveEntryAsync,
   computeScore,
   formatDate,
   type TrackingParameter,
   type DailyEntry,
 } from "@/lib/tracking-store";
 
-// Persist selected date across tab switches
 let persistedDate: Date = new Date();
 
 export default function TrackingPage() {
@@ -31,12 +30,13 @@ export default function TrackingPage() {
   const [formula, setFormula] = useState("");
   const [isExistingEntry, setIsExistingEntry] = useState(false);
 
-  const loadData = useCallback(() => {
-    const settings = getSettings();
+  const loadData = useCallback(async () => {
+    const settings = await getSettingsAsync();
     setParameters(settings.parameters);
     setFormula(settings.scoreFormula);
     const dateStr = formatDate(date);
-    const entry = getEntry(dateStr);
+    const entries = await getEntriesAsync();
+    const entry = entries.find((e) => e.date === dateStr);
     if (entry) {
       setValues(entry.values);
       setComment(entry.comment);
@@ -54,20 +54,19 @@ export default function TrackingPage() {
     loadData();
   }, [loadData]);
 
-  // Persist date when it changes
   useEffect(() => {
     persistedDate = date;
   }, [date]);
 
   const score = computeScore(values, parameters, formula);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const entry: DailyEntry = {
       date: formatDate(date),
       values,
       comment,
     };
-    saveEntry(entry);
+    await saveEntryAsync(entry);
     setIsExistingEntry(true);
     toast.success(isExistingEntry ? "Données mises à jour !" : "Données enregistrées !");
   };
@@ -78,7 +77,6 @@ export default function TrackingPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Date picker */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">
           {format(date, "EEEE d MMMM yyyy", { locale: fr })}
@@ -100,7 +98,6 @@ export default function TrackingPage() {
         </Popover>
       </div>
 
-      {/* Score */}
       {score !== null && (
         <Card className="border-2 border-primary/20 bg-accent/30">
           <CardContent className="flex items-center justify-between py-4">
@@ -110,7 +107,6 @@ export default function TrackingPage() {
         </Card>
       )}
 
-      {/* Parameters */}
       {parameters.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -151,7 +147,6 @@ export default function TrackingPage() {
         </Card>
       )}
 
-      {/* Comment */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Commentaire</CardTitle>
@@ -166,7 +161,6 @@ export default function TrackingPage() {
         </CardContent>
       </Card>
 
-      {/* Save */}
       <Button
         onClick={handleSave}
         className={cn(

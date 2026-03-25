@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Download, Upload, Settings } from "lucide-react";
 import {
-  getSettings, saveSettings, getEntries, saveEntries, computeScore,
+  getSettingsAsync, saveSettingsAsync, getEntriesAsync, saveEntriesAsync, computeScore,
   type TrackingParameter, type TrackingSettings, type DailyEntry,
 } from "@/lib/tracking-store";
 
@@ -76,12 +76,10 @@ function csvToSettings(csv: string): TrackingSettings | null {
   for (const line of lines) {
     const cols = parseCsvLine(line);
     if (cols[0]?.toLowerCase() === "type" && cols[1]?.toLowerCase() === "name") {
-      section = "params";
-      continue;
+      section = "params"; continue;
     }
     if (cols[0]?.toLowerCase() === "type" && cols[1]?.toLowerCase() === "value") {
-      section = "formula";
-      continue;
+      section = "formula"; continue;
     }
     if (!cols[0]?.trim()) continue;
 
@@ -130,11 +128,11 @@ export default function EditionPage() {
   const [entries, setEntries] = useState<DailyEntry[]>([]);
   const [formula, setFormula] = useState("");
 
-  const reload = () => {
-    const settings = getSettings();
+  const reload = async () => {
+    const settings = await getSettingsAsync();
     setParameters(settings.parameters);
     setFormula(settings.scoreFormula);
-    setEntries(getEntries());
+    setEntries(await getEntriesAsync());
   };
 
   useEffect(() => {
@@ -157,8 +155,8 @@ export default function EditionPage() {
     );
   };
 
-  const handleSave = () => {
-    saveEntries(entries);
+  const handleSave = async () => {
+    await saveEntriesAsync(entries);
     toast.success("Modifications enregistrées !");
   };
 
@@ -182,7 +180,7 @@ export default function EditionPage() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         const csv = ev.target?.result as string;
         const imported = csvToEntries(csv, parameters);
         if (imported.length === 0) {
@@ -196,7 +194,7 @@ export default function EditionPage() {
           else merged.push(imp);
         });
         merged.sort((a, b) => a.date.localeCompare(b.date));
-        saveEntries(merged);
+        await saveEntriesAsync(merged);
         setEntries(merged);
         toast.success(`${imported.length} entrée(s) importée(s) !`);
       };
@@ -205,8 +203,8 @@ export default function EditionPage() {
     input.click();
   };
 
-  const handleExportConfig = () => {
-    const settings = getSettings();
+  const handleExportConfig = async () => {
+    const settings = await getSettingsAsync();
     const csv = settingsToCsv(settings);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -226,14 +224,14 @@ export default function EditionPage() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         const csv = ev.target?.result as string;
         const imported = csvToSettings(csv);
         if (!imported) {
           toast.error("Aucune configuration importée. Vérifiez le format.");
           return;
         }
-        saveSettings(imported);
+        await saveSettingsAsync(imported);
         setParameters(imported.parameters);
         setFormula(imported.scoreFormula);
         toast.success(`Configuration importée (${imported.parameters.length} paramètre(s)) !`);

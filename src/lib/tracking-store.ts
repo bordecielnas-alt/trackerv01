@@ -1,3 +1,5 @@
+import { apiGet, apiPut, apiPost } from "./api";
+
 export interface TrackingParameter {
   id: string;
   name: string;
@@ -16,11 +18,43 @@ export interface DailyEntry {
 
 export interface TrackingSettings {
   parameters: TrackingParameter[];
-  scoreFormula: string; // e.g. "(param1 + param2 / 3) - 5"
+  scoreFormula: string;
 }
 
 const SETTINGS_KEY = "tracking-settings";
 const ENTRIES_KEY = "tracking-entries";
+
+// --- Async API-first versions ---
+
+export async function getSettingsAsync(): Promise<TrackingSettings> {
+  return apiGet("settings", SETTINGS_KEY, { parameters: [], scoreFormula: "" });
+}
+
+export async function saveSettingsAsync(settings: TrackingSettings): Promise<void> {
+  return apiPut("settings", SETTINGS_KEY, settings);
+}
+
+export async function getEntriesAsync(): Promise<DailyEntry[]> {
+  return apiGet("entries", ENTRIES_KEY, []);
+}
+
+export async function saveEntriesAsync(entries: DailyEntry[]): Promise<void> {
+  return apiPut("entries", ENTRIES_KEY, entries);
+}
+
+export async function saveEntryAsync(entry: DailyEntry): Promise<void> {
+  // Try API single-entry endpoint first
+  await apiPost("entries", entry);
+  // Also update localStorage as fallback
+  const entries = getEntries();
+  const idx = entries.findIndex((e) => e.date === entry.date);
+  if (idx >= 0) entries[idx] = entry;
+  else entries.push(entry);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+}
+
+// --- Synchronous localStorage versions (kept for compatibility) ---
 
 export function getSettings(): TrackingSettings {
   const raw = localStorage.getItem(SETTINGS_KEY);
@@ -67,7 +101,6 @@ export function computeScore(
       const regex = new RegExp(`\\b${escapeRegex(p.name)}\\b`, "gi");
       expr = expr.replace(regex, String(values[p.id] ?? p.defaultValue));
     }
-    // Only allow numbers, operators, parens, dots, spaces
     if (!/^[\d\s+\-*/().]+$/.test(expr)) return null;
     const result = Function(`"use strict"; return (${expr})`)();
     return typeof result === "number" && isFinite(result)

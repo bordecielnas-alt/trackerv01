@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  tracker:
+    build: .
+    container_name: trackerv01
+    ports:
+      - "8080:80"
+    volumes:
+      - /mnt/user/appdata/trackerv01:/data
+    restart: unless-stopped
