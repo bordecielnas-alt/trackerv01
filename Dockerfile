@@ -17,7 +17,7 @@ RUN npm install --production
 # Stage 3: Final image with nginx + node backend
 FROM nginx:stable-alpine
 
-# Install Node.js runtime
+# Install Node.js and supervisor
 RUN apk add --no-cache nodejs supervisor
 
 # Copy frontend build
@@ -33,29 +33,8 @@ COPY --from=backend-builder /server/node_modules /server/node_modules
 # Create data directory
 RUN mkdir -p /data && chmod 777 /data
 
-# Supervisor config to run both nginx and node
-RUN mkdir -p /etc/supervisor.d
-COPY <<'EOF' /etc/supervisor.d/app.ini
-[supervisord]
-nodaemon=true
-logfile=/dev/null
-logfile_maxbytes=0
-
-[program:nginx]
-command=nginx -g "daemon off;"
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-
-[program:backend]
-command=node /server/index.js
-environment=DATA_DIR="/data",PORT="3001"
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-EOF
+# Supervisor config
+COPY supervisord.conf /etc/supervisord.conf
 
 EXPOSE 80
 
