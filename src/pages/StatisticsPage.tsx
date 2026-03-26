@@ -213,13 +213,13 @@ export default function StatisticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               {chartType === "line" ? (
-                <LineChart data={chartData}>
+                <LineChart data={chartData} onClick={() => setActiveDot(true)}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                   {showRegression && (
                     <Line type="monotone" dataKey="Score (tendance)" stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                   )}
@@ -239,25 +239,28 @@ export default function StatisticsPage() {
         </CardContent>
       </Card>
 
-      {/* Parameter charts */}
-      {parameters
-        .filter((p) => visibleParams.has(p.id))
-        .map((p, i) => (
-          <Card key={p.id}>
+      {/* Parameter charts - ordered by selection */}
+      {visibleParams
+        .map((id) => parameters.find((p) => p.id === id))
+        .filter(Boolean)
+        .map((p) => {
+          const paramIdx = parameters.findIndex((pp) => pp.id === p!.id);
+          return (
+          <Card key={p!.id}>
             <CardHeader>
-              <CardTitle className="text-lg">{p.name}</CardTitle>
+              <CardTitle className="text-lg">{p!.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
                 {chartType === "line" ? (
-                  <LineChart data={chartData}>
+                  <LineChart data={chartData} onClick={() => setActiveDot(true)}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
                     <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Line type="monotone" dataKey={p.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey={p!.name} stroke={CHART_COLORS[paramIdx % CHART_COLORS.length]} strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                     {showRegression && (
-                      <Line type="monotone" dataKey={`${p.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      <Line type="monotone" dataKey={`${p!.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                     )}
                   </LineChart>
                 ) : (
@@ -266,13 +269,14 @@ export default function StatisticsPage() {
                     <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Bar dataKey={p.name} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey={p!.name} fill={CHART_COLORS[paramIdx % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
     </div>
   );
 }
