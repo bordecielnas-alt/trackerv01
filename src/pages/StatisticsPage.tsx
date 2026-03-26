@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { subDays, parseISO, isAfter, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -129,8 +129,21 @@ export default function StatisticsPage() {
     if (d > 0) setRangeDays(d);
   };
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      setActiveDot(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [handleClickOutside]);
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div ref={containerRef} className="mx-auto max-w-4xl space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Statistiques</h1>
 
       {/* Controls */}
