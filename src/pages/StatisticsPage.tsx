@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { subDays, parseISO, isAfter, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -22,6 +22,7 @@ const CHART_COLORS = [
 const TIME_RANGES = [
   { label: "7j", days: 7 },
   { label: "1 mois", days: 30 },
+  { label: "3 mois", days: 90 },
   { label: "6 mois", days: 180 },
   { label: "1 an", days: 365 },
 ];
@@ -47,7 +48,8 @@ export default function StatisticsPage() {
   const [rangeDays, setRangeDays] = useState(30);
   const [customDays, setCustomDays] = useState("");
   const [chartType, setChartType] = useState<"line" | "bar">("line");
-  const [visibleParams, setVisibleParams] = useState<Set<string>>(new Set());
+  const [visibleParams, setVisibleParams] = useState<string[]>([]);
+  const [activeDot, setActiveDot] = useState(false);
   const [showRegression, setShowRegression] = useState(false);
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export default function StatisticsPage() {
 
     // Parameter regressions
     parameters.forEach((p) => {
-      if (!visibleParams.has(p.id)) return;
+      if (!visibleParams.includes(p.id)) return;
       const pts = data
         .map((d, i) => ({ x: i, y: d[p.name] as number }))
         .filter((d) => d.y !== null && d.y !== undefined);
@@ -112,14 +114,13 @@ export default function StatisticsPage() {
     });
 
     return data;
-  }, [filteredData, showRegression, chartType, parameters, visibleParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredData, showRegression, chartType, parameters, JSON.stringify(visibleParams)]);
 
   const toggleParam = (id: string) => {
     setVisibleParams((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      if (prev.includes(id)) return prev.filter((p) => p !== id);
+      return [...prev, id];
     });
   };
 
@@ -128,8 +129,21 @@ export default function StatisticsPage() {
     if (d > 0) setRangeDays(d);
   };
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      setActiveDot(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [handleClickOutside]);
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div ref={containerRef} className="mx-auto max-w-4xl space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Statistiques</h1>
 
       {/* Controls */}
@@ -186,11 +200,11 @@ export default function StatisticsPage() {
           {parameters.map((p, i) => (
             <Button
               key={p.id}
-              variant={visibleParams.has(p.id) ? "default" : "outline"}
+              variant={visibleParams.includes(p.id) ? "default" : "outline"}
               size="sm"
               onClick={() => toggleParam(p.id)}
               style={
-                visibleParams.has(p.id)
+                visibleParams.includes(p.id)
                   ? { backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }
                   : {}
               }
@@ -212,13 +226,13 @@ export default function StatisticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               {chartType === "line" ? (
-                <LineChart data={chartData}>
+                <LineChart data={chartData} onClick={() => setActiveDot(true)}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                   {showRegression && (
                     <Line type="monotone" dataKey="Score (tendance)" stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                   )}
@@ -238,25 +252,28 @@ export default function StatisticsPage() {
         </CardContent>
       </Card>
 
-      {/* Parameter charts */}
-      {parameters
-        .filter((p) => visibleParams.has(p.id))
-        .map((p, i) => (
-          <Card key={p.id}>
+      {/* Parameter charts - ordered by selection */}
+      {visibleParams
+        .map((id) => parameters.find((p) => p.id === id))
+        .filter(Boolean)
+        .map((p) => {
+          const paramIdx = parameters.findIndex((pp) => pp.id === p!.id);
+          return (
+          <Card key={p!.id}>
             <CardHeader>
-              <CardTitle className="text-lg">{p.name}</CardTitle>
+              <CardTitle className="text-lg">{p!.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
                 {chartType === "line" ? (
-                  <LineChart data={chartData}>
+                  <LineChart data={chartData} onClick={() => setActiveDot(true)}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
                     <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Line type="monotone" dataKey={p.name} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey={p!.name} stroke={CHART_COLORS[paramIdx % CHART_COLORS.length]} strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                     {showRegression && (
-                      <Line type="monotone" dataKey={`${p.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      <Line type="monotone" dataKey={`${p!.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                     )}
                   </LineChart>
                 ) : (
@@ -265,13 +282,14 @@ export default function StatisticsPage() {
                     <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Bar dataKey={p.name} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey={p!.name} fill={CHART_COLORS[paramIdx % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
     </div>
   );
 }

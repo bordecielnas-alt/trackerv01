@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -123,10 +123,25 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
+const COL_WIDTHS_KEY = "edition-col-widths";
+
+function loadColWidths(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(COL_WIDTHS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
+function saveColWidths(widths: Record<string, number>) {
+  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(widths));
+}
+
 export default function EditionPage() {
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [entries, setEntries] = useState<DailyEntry[]>([]);
   const [formula, setFormula] = useState("");
+  const [colWidths, setColWidths] = useState<Record<string, number>>(loadColWidths);
 
   const reload = async () => {
     const settings = await getSettingsAsync();
@@ -275,72 +290,152 @@ export default function EditionPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground sticky left-0 bg-muted/50">
-                    Date
-                  </th>
-                  <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
-                    Score
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                    Commentaire
-                  </th>
-                  {parameters.map((p) => (
-                    <th key={p.id} className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
-                      {p.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {entries
-                  .sort((a, b) => b.date.localeCompare(a.date))
-                  .map((entry) => {
-                    const score = computeScore(entry.values, parameters, formula);
-                    return (
-                      <tr key={entry.date} className="border-b border-border/50 hover:bg-accent/20">
-                        <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">
-                          {entry.date}
-                        </td>
-                        <td className="px-3 py-2 text-center font-semibold text-primary tabular-nums">
-                          {score !== null ? score : "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            className="h-8 min-w-[150px]"
-                            value={entry.comment}
-                            onChange={(e) =>
-                              handleCommentChange(entry.date, e.target.value)
-                            }
-                          />
-                        </td>
-                        {parameters.map((p) => (
-                          <td key={p.id} className="px-3 py-2">
-                            <Input
-                              type="number"
-                              className="w-20 h-8 text-center mx-auto"
-                              value={entry.values[p.id] ?? ""}
-                              onChange={(e) =>
-                                handleValueChange(entry.date, p.id, e.target.value)
-                              }
-                              min={p.min}
-                              max={p.max}
-                              step={p.step}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
+            <ResizableTable
+              parameters={parameters}
+              entries={entries}
+              formula={formula}
+              colWidths={colWidths}
+              onColResize={(key, w) => {
+                setColWidths((prev) => {
+                  const next = { ...prev, [key]: w };
+                  saveColWidths(next);
+                  return next;
+                });
+              }}
+              onValueChange={handleValueChange}
+              onCommentChange={handleCommentChange}
+            />
           </CardContent>
         </Card>
       )}
     </div>
+  );
+}
+
+function ResizableHeader({
+  children,
+  width,
+  onResize,
+  className,
+}: {
+  children: React.ReactNode;
+  width?: number;
+  onResize: (w: number) => void;
+  className?: string;
+}) {
+  const thRef = useRef<HTMLTableCellElement>(null);
+  const startX = useRef(0);
+  const startW = useRef(0);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    startX.current = e.clientX;
+    startW.current = thRef.current?.offsetWidth || 100;
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(50, startW.current + ev.clientX - startX.current);
+      onResize(newW);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  return (
+    <th
+      ref={thRef}
+      style={width ? { width: `${width}px`, minWidth: `${width}px` } : undefined}
+      className={`px-3 py-2 font-medium text-muted-foreground whitespace-nowrap relative select-none ${className || ""}`}
+    >
+      {children}
+      <div
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/40"
+        onMouseDown={onMouseDown}
+      />
+    </th>
+  );
+}
+
+function ResizableTable({
+  parameters,
+  entries,
+  formula,
+  colWidths,
+  onColResize,
+  onValueChange,
+  onCommentChange,
+}: {
+  parameters: TrackingParameter[];
+  entries: DailyEntry[];
+  formula: string;
+  colWidths: Record<string, number>;
+  onColResize: (key: string, w: number) => void;
+  onValueChange: (date: string, paramId: string, value: string) => void;
+  onCommentChange: (date: string, comment: string) => void;
+}) {
+  const sorted = [...parameters].sort((a, b) => a.order - b.order);
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-muted/50">
+          <ResizableHeader width={colWidths["date"]} onResize={(w) => onColResize("date", w)} className="text-left sticky left-0 bg-muted/50">
+            Date
+          </ResizableHeader>
+          <ResizableHeader width={colWidths["score"]} onResize={(w) => onColResize("score", w)} className="text-center">
+            Score
+          </ResizableHeader>
+          <ResizableHeader width={colWidths["comment"]} onResize={(w) => onColResize("comment", w)} className="text-left">
+            Commentaire
+          </ResizableHeader>
+          {sorted.map((p) => (
+            <ResizableHeader key={p.id} width={colWidths[p.id]} onResize={(w) => onColResize(p.id, w)} className="text-center">
+              {p.name}
+            </ResizableHeader>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {entries
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .map((entry) => {
+            const score = computeScore(entry.values, parameters, formula);
+            return (
+              <tr key={entry.date} className="border-b border-border/50 hover:bg-accent/20">
+                <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">
+                  {entry.date}
+                </td>
+                <td className="px-3 py-2 text-center font-semibold text-primary tabular-nums">
+                  {score !== null ? score : "—"}
+                </td>
+                <td className="px-3 py-2">
+                  <Input
+                    className="h-8 min-w-[150px]"
+                    value={entry.comment}
+                    onChange={(e) => onCommentChange(entry.date, e.target.value)}
+                  />
+                </td>
+                {sorted.map((p) => (
+                  <td key={p.id} className="px-3 py-2">
+                    <Input
+                      type="number"
+                      className="w-20 h-8 text-center mx-auto"
+                      value={entry.values[p.id] ?? ""}
+                      onChange={(e) => onValueChange(entry.date, p.id, e.target.value)}
+                      min={p.min}
+                      max={p.max}
+                      step={p.step}
+                    />
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+      </tbody>
+    </table>
   );
 }
