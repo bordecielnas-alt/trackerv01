@@ -8,6 +8,7 @@ import { isAuthenticated } from "@/lib/auth-store";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import TrackingPage from "@/pages/TrackingPage";
+import RoutinePage from "@/pages/RoutinePage";
 import SettingsPage from "@/pages/SettingsPage";
 import StatisticsPage from "@/pages/StatisticsPage";
 import EditionPage from "@/pages/EditionPage";
@@ -40,6 +41,7 @@ const App = () => {
           <AppLayout onLogout={() => setAuthed(false)}>
             <Routes>
               <Route path="/" element={<TrackingPage />} />
+              <Route path="/routine" element={<RoutinePage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/statistics" element={<StatisticsPage />} />
               <Route path="/edition" element={<EditionPage />} />
