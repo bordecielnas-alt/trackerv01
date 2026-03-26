@@ -22,6 +22,7 @@ const CHART_COLORS = [
 const TIME_RANGES = [
   { label: "7j", days: 7 },
   { label: "1 mois", days: 30 },
+  { label: "3 mois", days: 90 },
   { label: "6 mois", days: 180 },
   { label: "1 an", days: 365 },
 ];
@@ -47,7 +48,8 @@ export default function StatisticsPage() {
   const [rangeDays, setRangeDays] = useState(30);
   const [customDays, setCustomDays] = useState("");
   const [chartType, setChartType] = useState<"line" | "bar">("line");
-  const [visibleParams, setVisibleParams] = useState<Set<string>>(new Set());
+  const [visibleParams, setVisibleParams] = useState<string[]>([]);
+  const [activeDot, setActiveDot] = useState(false);
   const [showRegression, setShowRegression] = useState(false);
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export default function StatisticsPage() {
 
     // Parameter regressions
     parameters.forEach((p) => {
-      if (!visibleParams.has(p.id)) return;
+      if (!visibleParams.includes(p.id)) return;
       const pts = data
         .map((d, i) => ({ x: i, y: d[p.name] as number }))
         .filter((d) => d.y !== null && d.y !== undefined);
@@ -112,14 +114,13 @@ export default function StatisticsPage() {
     });
 
     return data;
-  }, [filteredData, showRegression, chartType, parameters, visibleParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredData, showRegression, chartType, parameters, JSON.stringify(visibleParams)]);
 
   const toggleParam = (id: string) => {
     setVisibleParams((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      if (prev.includes(id)) return prev.filter((p) => p !== id);
+      return [...prev, id];
     });
   };
 
@@ -186,11 +187,11 @@ export default function StatisticsPage() {
           {parameters.map((p, i) => (
             <Button
               key={p.id}
-              variant={visibleParams.has(p.id) ? "default" : "outline"}
+              variant={visibleParams.includes(p.id) ? "default" : "outline"}
               size="sm"
               onClick={() => toggleParam(p.id)}
               style={
-                visibleParams.has(p.id)
+                visibleParams.includes(p.id)
                   ? { backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }
                   : {}
               }

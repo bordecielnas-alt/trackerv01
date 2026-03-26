@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,19 @@ export default function SettingsPage() {
     toast.success("Paramètre supprimé");
   };
 
+  const handleMoveParam = async (id: string, direction: "up" | "down") => {
+    const sorted = [...settings.parameters].sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex((p) => p.id === id);
+    if ((direction === "up" && idx <= 0) || (direction === "down" && idx >= sorted.length - 1)) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    const tempOrder = sorted[idx].order;
+    sorted[idx] = { ...sorted[idx], order: sorted[swapIdx].order };
+    sorted[swapIdx] = { ...sorted[swapIdx], order: tempOrder };
+    const updated = { ...settings, parameters: sorted };
+    setSettings(updated);
+    await saveSettingsAsync(updated);
+  };
+
   const handleSaveParam = async () => {
     if (!editParam.name.trim()) {
       toast.error("Le nom est requis");
@@ -114,6 +127,12 @@ export default function SettingsPage() {
                         Défaut: {p.defaultValue} · Min: {p.min} · Max: {p.max} · Pas: {p.step}
                       </div>
                     </div>
+                    <Button variant="ghost" size="icon" onClick={() => handleMoveParam(p.id, "up")}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleMoveParam(p.id, "down")}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
                       <Pencil className="h-4 w-4" />
                     </Button>

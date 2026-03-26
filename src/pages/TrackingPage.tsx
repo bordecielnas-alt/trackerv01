@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { format } from "date-fns";
+import { format, addDays, subDays as subDaysDate } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Save } from "lucide-react";
+import { CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -81,21 +81,29 @@ export default function TrackingPage() {
         <h1 className="text-2xl font-bold text-foreground">
           {format(date, "EEEE d MMMM yyyy", { locale: fr })}
         </h1>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="icon">
-              <CalendarIcon className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={(d) => d && setDate(d)}
-              className="p-3 pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" onClick={() => setDate(d => subDaysDate(d, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon">
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => d && setDate(d)}
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          <Button variant="outline" size="icon" onClick={() => setDate(d => addDays(d, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {score !== null && (
