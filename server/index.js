@@ -21,6 +21,7 @@ const FILES = {
   credentials: path.join(DATA_DIR, "credentials.json"),
   routine: path.join(DATA_DIR, "routine.json"),
   preferences: path.join(DATA_DIR, "preferences.json"),
+  todo: path.join(DATA_DIR, "todo.json"),
 };
 
 function readJSON(filePath, fallback) {
@@ -100,6 +101,16 @@ app.get("/api/preferences", (_req, res) => {
 
 app.put("/api/preferences", (req, res) => {
   writeJSON(FILES.preferences, req.body);
+  res.json({ ok: true });
+});
+
+// --- Todo ---
+app.get("/api/todo", (_req, res) => {
+  res.json(readJSON(FILES.todo, { tasks: [], dates: [] }));
+});
+
+app.put("/api/todo", (req, res) => {
+  writeJSON(FILES.todo, req.body);
   res.json({ ok: true });
 });
 
