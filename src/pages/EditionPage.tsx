@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Download, Upload, Settings } from "lucide-react";
 import {
   getSettingsAsync, saveSettingsAsync, getEntriesAsync, saveEntriesAsync, computeScore,
+  getPreferencesAsync, savePreferencesAsync,
   type TrackingParameter, type TrackingSettings, type DailyEntry,
 } from "@/lib/tracking-store";
 
@@ -123,35 +124,34 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-const COL_WIDTHS_KEY = "edition-col-widths";
-
-function loadColWidths(): Record<string, number> {
-  try {
-    const raw = localStorage.getItem(COL_WIDTHS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return {};
-}
-
-function saveColWidths(widths: Record<string, number>) {
-  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(widths));
-}
-
 export default function EditionPage() {
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [entries, setEntries] = useState<DailyEntry[]>([]);
   const [formula, setFormula] = useState("");
-  const [colWidths, setColWidths] = useState<Record<string, number>>(loadColWidths);
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
 
   const reload = async () => {
     const settings = await getSettingsAsync();
     setParameters(settings.parameters);
     setFormula(settings.scoreFormula);
     setEntries(await getEntriesAsync());
+    const prefs = await getPreferencesAsync();
+    if (prefs.colWidths) setColWidths(prefs.colWidths as Record<string, number>);
   };
 
   useEffect(() => {
     reload();
+  }, []);
+
+  const handleColResize = useCallback(async (key: string, w: number) => {
+    setColWidths((prev) => {
+      const next = { ...prev, [key]: w };
+      // Save async
+      getPreferencesAsync().then((prefs) => {
+        savePreferencesAsync({ ...prefs, colWidths: next });
+      });
+      return next;
+    });
   }, []);
 
   const handleValueChange = (date: string, paramId: string, value: string) => {
@@ -257,29 +257,29 @@ export default function EditionPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-foreground">Édition</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Édition</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleImportConfig} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleImportConfig} className="gap-1 sm:gap-2">
             <Settings className="h-4 w-4" />
             <Upload className="h-4 w-4" />
-            Importer Config
+            <span className="hidden sm:inline">Importer Config</span>
           </Button>
-          <Button variant="outline" onClick={handleExportConfig} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportConfig} className="gap-1 sm:gap-2">
             <Settings className="h-4 w-4" />
             <Download className="h-4 w-4" />
-            Exporter Config
+            <span className="hidden sm:inline">Exporter Config</span>
           </Button>
-          <Button variant="outline" onClick={handleImport} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleImport} className="gap-1 sm:gap-2">
             <Upload className="h-4 w-4" />
-            Importer CSV
+            <span className="hidden sm:inline">Importer CSV</span>
           </Button>
-          <Button variant="outline" onClick={handleExport} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport} className="gap-1 sm:gap-2">
             <Download className="h-4 w-4" />
-            Exporter CSV
+            <span className="hidden sm:inline">Exporter CSV</span>
           </Button>
-          <Button onClick={handleSave}>Enregistrer tout</Button>
+          <Button size="sm" onClick={handleSave}>Enregistrer tout</Button>
         </div>
       </div>
 
@@ -290,23 +290,19 @@ export default function EditionPage() {
           </CardContent>
         </Card>
       ) : (
-         <Card>
-          <CardContent className="overflow-x-auto p-0">
-            <ResizableTable
-              parameters={parameters}
-              entries={entries}
-              formula={formula}
-              colWidths={colWidths}
-              onColResize={(key, w) => {
-                setColWidths((prev) => {
-                  const next = { ...prev, [key]: w };
-                  saveColWidths(next);
-                  return next;
-                });
-              }}
-              onValueChange={handleValueChange}
-              onCommentChange={handleCommentChange}
-            />
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-auto max-h-[calc(100vh-200px)]">
+              <ResizableTable
+                parameters={parameters}
+                entries={entries}
+                formula={formula}
+                colWidths={colWidths}
+                onColResize={handleColResize}
+                onValueChange={handleValueChange}
+                onCommentChange={handleCommentChange}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
@@ -349,7 +345,7 @@ function ResizableHeader({
     <th
       ref={thRef}
       style={width ? { width: `${width}px`, minWidth: `${width}px` } : undefined}
-      className={`px-3 py-2 font-medium text-muted-foreground whitespace-nowrap relative select-none ${className || ""}`}
+      className={`px-2 sm:px-3 py-2 font-medium text-muted-foreground whitespace-nowrap relative select-none ${className || ""}`}
     >
       {children}
       <div
@@ -381,9 +377,9 @@ function ResizableTable({
 
   return (
     <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-border bg-muted/50">
-          <ResizableHeader width={colWidths["date"]} onResize={(w) => onColResize("date", w)} className="text-left sticky left-0 bg-muted/50">
+      <thead className="sticky top-0 z-10">
+        <tr className="border-b border-border bg-muted/95 backdrop-blur-sm">
+          <ResizableHeader width={colWidths["date"]} onResize={(w) => onColResize("date", w)} className="text-left sticky left-0 bg-muted/95">
             Date
           </ResizableHeader>
           <ResizableHeader width={colWidths["score"]} onResize={(w) => onColResize("score", w)} className="text-center">
@@ -406,24 +402,24 @@ function ResizableTable({
             const score = computeScore(entry.values, parameters, formula);
             return (
               <tr key={entry.date} className="border-b border-border/50 hover:bg-accent/20">
-                <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">
+                <td className="px-2 sm:px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">
                   {entry.date}
                 </td>
-                <td className="px-3 py-2 text-center font-semibold text-primary tabular-nums">
+                <td className="px-2 sm:px-3 py-2 text-center font-semibold text-primary tabular-nums">
                   {score !== null ? score : "—"}
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 sm:px-3 py-2">
                   <Input
-                    className="h-8 min-w-[150px]"
+                    className="h-8 min-w-[120px] sm:min-w-[150px]"
                     value={entry.comment}
                     onChange={(e) => onCommentChange(entry.date, e.target.value)}
                   />
                 </td>
                 {sorted.map((p) => (
-                  <td key={p.id} className="px-3 py-2">
+                  <td key={p.id} className="px-2 sm:px-3 py-2">
                     <Input
                       type="number"
-                      className="w-20 h-8 text-center mx-auto"
+                      className="w-16 sm:w-20 h-8 text-center mx-auto"
                       value={entry.values[p.id] ?? ""}
                       onChange={(e) => onValueChange(entry.date, p.id, e.target.value)}
                       min={p.min}

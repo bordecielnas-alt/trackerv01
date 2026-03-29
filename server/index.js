@@ -19,6 +19,8 @@ const FILES = {
   settings: path.join(DATA_DIR, "settings.json"),
   entries: path.join(DATA_DIR, "entries.json"),
   credentials: path.join(DATA_DIR, "credentials.json"),
+  routine: path.join(DATA_DIR, "routine.json"),
+  preferences: path.join(DATA_DIR, "preferences.json"),
 };
 
 function readJSON(filePath, fallback) {
@@ -78,6 +80,26 @@ app.get("/api/credentials", (_req, res) => {
 
 app.put("/api/credentials", (req, res) => {
   writeJSON(FILES.credentials, req.body);
+  res.json({ ok: true });
+});
+
+// --- Routine ---
+app.get("/api/routine", (_req, res) => {
+  res.json(readJSON(FILES.routine, []));
+});
+
+app.put("/api/routine", (req, res) => {
+  writeJSON(FILES.routine, req.body);
+  res.json({ ok: true });
+});
+
+// --- Preferences (col widths, UI state) ---
+app.get("/api/preferences", (_req, res) => {
+  res.json(readJSON(FILES.preferences, {}));
+});
+
+app.put("/api/preferences", (req, res) => {
+  writeJSON(FILES.preferences, req.body);
   res.json({ ok: true });
 });
 
