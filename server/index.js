@@ -104,6 +104,16 @@ app.put("/api/preferences", (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Todo ---
+app.get("/api/todo", (_req, res) => {
+  res.json(readJSON(FILES.todo, { tasks: [], dates: [] }));
+});
+
+app.put("/api/todo", (req, res) => {
+  writeJSON(FILES.todo, req.body);
+  res.json({ ok: true });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Tracker backend listening on port ${PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
