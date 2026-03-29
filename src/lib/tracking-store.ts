@@ -115,6 +115,24 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// --- Routine blocks ---
+export async function getRoutineAsync(): Promise<unknown[]> {
+  return apiGet("routine", "routine-blocks", []);
+}
+
+export async function saveRoutineAsync(blocks: unknown[]): Promise<void> {
+  return apiPut("routine", "routine-blocks", blocks);
+}
+
+// --- UI Preferences (col widths, etc.) ---
+export async function getPreferencesAsync(): Promise<Record<string, unknown>> {
+  return apiGet("preferences", "ui-preferences", {});
+}
+
+export async function savePreferencesAsync(prefs: Record<string, unknown>): Promise<void> {
+  return apiPut("preferences", "ui-preferences", prefs);
+}
+
 export function formatDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
