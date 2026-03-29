@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Settings, BarChart3, TableProperties, ShieldCheck, LogOut, Clock } from "lucide-react";
+import { CalendarDays, Settings, BarChart3, TableProperties, ShieldCheck, LogOut, Clock, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-store";
 
 const navItems = [
   { to: "/", label: "Tracking", icon: CalendarDays },
   { to: "/routine", label: "Routine", icon: Clock },
+  { to: "/todo", label: "To Do", icon: ListTodo },
   { to: "/settings", label: "Réglages", icon: Settings },
   { to: "/statistics", label: "Statistiques", icon: BarChart3 },
   { to: "/edition", label: "Édition", icon: TableProperties },

@@ -21,6 +21,7 @@ const FILES = {
   credentials: path.join(DATA_DIR, "credentials.json"),
   routine: path.join(DATA_DIR, "routine.json"),
   preferences: path.join(DATA_DIR, "preferences.json"),
+  todo: path.join(DATA_DIR, "todo.json"),
 };
 
 function readJSON(filePath, fallback) {
