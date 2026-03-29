@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { getRoutineAsync, saveRoutineAsync } from "@/lib/tracking-store";
 
 interface RoutineBlock {
   id: number;
@@ -13,24 +14,18 @@ interface RoutineBlock {
   timecode: number; // seconds
 }
 
-const STORAGE_KEY = "routine-blocks";
+const DEFAULT_BLOCKS: RoutineBlock[] = [
+  { id: 1, title: "Bloc 1", body: "", timecode: 300 },
+  { id: 2, title: "Bloc 2", body: "", timecode: 600 },
+  { id: 3, title: "Bloc 3", body: "", timecode: 900 },
+  { id: 4, title: "Bloc 4", body: "", timecode: 1200 },
+];
 
-function loadBlocks(): RoutineBlock[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [
-    { id: 1, title: "Bloc 1", body: "", timecode: 300 },
-    { id: 2, title: "Bloc 2", body: "", timecode: 600 },
-    { id: 3, title: "Bloc 3", body: "", timecode: 900 },
-    { id: 4, title: "Bloc 4", body: "", timecode: 1200 },
-  ];
-}
-
-function saveBlocks(blocks: RoutineBlock[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(blocks));
-}
+// Module-level state to persist across tab switches
+let _blocks: RoutineBlock[] | null = null;
+let _elapsed = 0;
+let _running = false;
+let _intervalId: ReturnType<typeof setInterval> | null = null;
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -69,19 +64,51 @@ function renderBodyWithLinks(body: string) {
 }
 
 export default function RoutinePage() {
-  const [blocks, setBlocks] = useState<RoutineBlock[]>(loadBlocks);
-  const [elapsed, setElapsed] = useState(0);
-  const [running, setRunning] = useState(false);
+  const [blocks, setBlocks] = useState<RoutineBlock[]>(_blocks || DEFAULT_BLOCKS);
+  const [elapsed, setElapsed] = useState(_elapsed);
+  const [running, setRunning] = useState(_running);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [loaded, setLoaded] = useState(!!_blocks);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(_intervalId);
+
+  // Load from server on first mount
+  useEffect(() => {
+    if (!_blocks) {
+      getRoutineAsync().then((data) => {
+        const b = (data as RoutineBlock[]);
+        if (b && b.length > 0) {
+          _blocks = b;
+          setBlocks(b);
+        } else {
+          _blocks = DEFAULT_BLOCKS;
+        }
+        setLoaded(true);
+      });
+    }
+  }, []);
+
+  // Sync module-level state
+  useEffect(() => { _elapsed = elapsed; }, [elapsed]);
+  useEffect(() => { _running = running; }, [running]);
+  useEffect(() => { _blocks = blocks; }, [blocks]);
 
   useEffect(() => {
     if (running) {
-      intervalRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+      const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+      intervalRef.current = id;
+      _intervalId = id;
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      _intervalId = null;
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        _intervalId = null;
+      }
+    };
   }, [running]);
 
   const handleReset = () => {
@@ -92,39 +119,41 @@ export default function RoutinePage() {
   const updateBlock = useCallback((id: number, updates: Partial<RoutineBlock>) => {
     setBlocks((prev) => {
       const next = prev.map((b) => (b.id === id ? { ...b, ...updates } : b));
-      saveBlocks(next);
+      saveRoutineAsync(next);
       return next;
     });
   }, []);
 
+  if (!loaded) return null;
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Routine</h1>
+    <div className="mx-auto max-w-2xl space-y-4 sm:space-y-6">
+      <h1 className="text-xl sm:text-2xl font-bold text-foreground">Routine</h1>
 
       {/* Stopwatch - sticky */}
-      <div className="sticky top-14 z-40 bg-background py-3 border-b border-border">
-        <div className="flex items-center gap-4 justify-center">
+      <div className="sticky top-14 z-40 bg-background py-2 sm:py-3 border-b border-border">
+        <div className="flex items-center gap-2 sm:gap-4 justify-center flex-wrap">
           <Button
             onClick={() => setRunning(!running)}
             variant={running ? "destructive" : "default"}
-            size="lg"
+            size="default"
             className="gap-2"
           >
             {running ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {running ? "Stop" : "Démarrer"}
+            <span className="hidden sm:inline">{running ? "Stop" : "Démarrer"}</span>
           </Button>
-          <span className="text-4xl font-mono font-bold text-foreground tabular-nums">
+          <span className="text-2xl sm:text-4xl font-mono font-bold text-foreground tabular-nums">
             {formatTime(elapsed)}
           </span>
-          <Button onClick={handleReset} variant="outline" size="lg" className="gap-2">
+          <Button onClick={handleReset} variant="outline" size="default" className="gap-2">
             <RotateCcw className="h-4 w-4" />
-            Réinitialiser
+            <span className="hidden sm:inline">Réinitialiser</span>
           </Button>
         </div>
       </div>
 
       {/* Blocks */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {blocks.map((block) => {
           const isTriggered = elapsed >= block.timecode && block.timecode > 0;
           const isEditing = editingId === block.id;
@@ -137,7 +166,7 @@ export default function RoutinePage() {
                 isTriggered && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700"
               )}
             >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6">
                 {isEditing ? (
                   <Input
                     value={block.title}
@@ -145,12 +174,12 @@ export default function RoutinePage() {
                     className="text-lg font-semibold h-8 w-auto"
                   />
                 ) : (
-                  <CardTitle className="text-lg">{block.title}</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">{block.title}</CardTitle>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   {isEditing ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Timecode:</span>
+                      <span className="text-xs text-muted-foreground hidden sm:inline">Timecode:</span>
                       <Input
                         value={formatTime(block.timecode)}
                         onChange={(e) => updateBlock(block.id, { timecode: parseTimecode(e.target.value) })}
@@ -172,7 +201,7 @@ export default function RoutinePage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6">
                 {isEditing ? (
                   <Textarea
                     value={block.body}
