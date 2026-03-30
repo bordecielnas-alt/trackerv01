@@ -236,7 +236,7 @@ export default function TodoPage() {
   // --- Bubble chart data ---
   const chartTasks = tasks.filter((t) => t.zone !== "done");
   const chartSubtasks: { taskName: string; taskColor: string; subName: string; date: string; score: number }[] = [];
-  for (const t of allDoneTasks) {
+  for (const t of chartTasks) {
     for (const st of t.subtasks) {
       for (const [d, s] of Object.entries(st.scores)) {
         if (s > 0) chartSubtasks.push({ taskName: t.name, taskColor: t.color || "#6366f1", subName: st.name, date: d, score: s });
