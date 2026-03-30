@@ -89,6 +89,101 @@ function renderClickableText(text: string) {
   );
 }
 
+function NotesEditor({ value, onChange, onBlur }: { value: string; onChange: (v: string) => void; onBlur: () => void }) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const textToHtml = (text: string) => {
+    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const withLinks = escaped.replace(
+      /(https?:\/\/[^\s]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80" data-url="true">$1</a>'
+    );
+    return withLinks.replace(/\n/g, "<br>");
+  };
+
+  const htmlToText = (el: HTMLElement) => {
+    let text = "";
+    for (const node of Array.from(el.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent || "";
+      } else if (node.nodeName === "BR") {
+        text += "\n";
+      } else if (node.nodeName === "A") {
+        text += (node as HTMLElement).textContent || "";
+      } else if (node.nodeName === "DIV" || node.nodeName === "P") {
+        if (text && !text.endsWith("\n")) text += "\n";
+        text += htmlToText(node as HTMLElement);
+      } else {
+        text += (node as HTMLElement).textContent || "";
+      }
+    }
+    return text;
+  };
+
+  useEffect(() => {
+    if (editorRef.current && !isEditing) {
+      editorRef.current.innerHTML = value ? textToHtml(value) : "";
+    }
+  }, [value, isEditing]);
+
+  const handleInput = () => {
+    if (!editorRef.current) return;
+    const newText = htmlToText(editorRef.current);
+    onChange(newText);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (editorRef.current) {
+      const newText = htmlToText(editorRef.current);
+      onChange(newText);
+      // Re-render with clickable links
+      editorRef.current.innerHTML = newText ? textToHtml(newText) : "";
+    }
+    onBlur();
+  };
+
+  const handleFocus = () => {
+    setIsEditing(true);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "A" && target.dataset.url && !isEditing) {
+      e.preventDefault();
+      window.open(target.getAttribute("href") || "", "_blank");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      document.execCommand("insertLineBreak");
+    }
+  };
+
+  return (
+    <div className="mt-1 mb-1">
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onBlur={handleBlur}
+        onFocus={handleFocus}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        data-placeholder="Notes, liens, remarques…"
+        className={cn(
+          "text-xs min-h-[80px] whitespace-pre-wrap rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          !value && "before:content-[attr(data-placeholder)] before:text-muted-foreground before:pointer-events-none"
+        )}
+      />
+    </div>
+  );
+}
+
 export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dates, setDates] = useState<string[]>(() => generateDates(30));
@@ -376,15 +471,11 @@ export default function TodoPage() {
                             Notes {task.notes && !task.notesExpanded && <span className="text-muted-foreground/60 ml-1 truncate max-w-[200px] inline-block align-bottom">— {task.notes.split('\n')[0]}</span>}
                           </button>
                           {task.notesExpanded && (
-                            <div className="mt-1 mb-1">
-                              <Textarea
-                                value={task.notes}
-                                onChange={(e) => updateTask(task.id, { notes: e.target.value })}
-                                onBlur={() => save(tasks)}
-                                placeholder="Notes, liens, remarques…"
-                                className="text-xs min-h-[80px] whitespace-pre-wrap"
-                              />
-                            </div>
+                            <NotesEditor
+                              value={task.notes}
+                              onChange={(val) => updateTask(task.id, { notes: val })}
+                              onBlur={() => save(tasks)}
+                            />
                           )}
                         </div>
 
