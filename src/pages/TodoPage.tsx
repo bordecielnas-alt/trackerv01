@@ -464,7 +464,7 @@ export default function TodoPage() {
       {/* Bubble chart for done tasks */}
       {chartSubtasks.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches terminées</h2>
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches actives</h2>
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full">
               <div className="flex">
