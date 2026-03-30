@@ -234,9 +234,9 @@ export default function TodoPage() {
   };
 
   // --- Bubble chart data ---
-  const allDoneTasks = tasks.filter((t) => t.zone === "done");
+  const chartTasks = tasks.filter((t) => t.zone !== "done");
   const chartSubtasks: { taskName: string; taskColor: string; subName: string; date: string; score: number }[] = [];
-  for (const t of allDoneTasks) {
+  for (const t of chartTasks) {
     for (const st of t.subtasks) {
       for (const [d, s] of Object.entries(st.scores)) {
         if (s > 0) chartSubtasks.push({ taskName: t.name, taskColor: t.color || "#6366f1", subName: st.name, date: d, score: s });
@@ -373,14 +373,17 @@ export default function TodoPage() {
                         <div className="px-3 py-1 border-b border-border">
                           <button className="text-xs text-muted-foreground flex items-center gap-1" onClick={() => updateTask(task.id, { notesExpanded: !task.notesExpanded })}>
                             {task.notesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                            Notes
+                            Notes {task.notes && !task.notesExpanded && <span className="text-muted-foreground/60 ml-1 truncate max-w-[200px] inline-block align-bottom">— {task.notes.split('\n')[0]}</span>}
                           </button>
                           {task.notesExpanded && (
-                            <div className="mt-1">
-                              <Textarea value={task.notes} onChange={(e) => updateTask(task.id, { notes: e.target.value })} placeholder="Notes…" className="text-xs min-h-[60px]" />
-                              {task.notes && (
-                                <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{renderClickableText(task.notes)}</div>
-                              )}
+                            <div className="mt-1 mb-1">
+                              <Textarea
+                                value={task.notes}
+                                onChange={(e) => updateTask(task.id, { notes: e.target.value })}
+                                onBlur={() => save(tasks)}
+                                placeholder="Notes, liens, remarques…"
+                                className="text-xs min-h-[80px] whitespace-pre-wrap"
+                              />
                             </div>
                           )}
                         </div>
@@ -464,7 +467,7 @@ export default function TodoPage() {
       {/* Bubble chart for done tasks */}
       {chartSubtasks.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches terminées</h2>
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches actives</h2>
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full">
               <div className="flex">
