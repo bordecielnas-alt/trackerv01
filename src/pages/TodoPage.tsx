@@ -373,14 +373,17 @@ export default function TodoPage() {
                         <div className="px-3 py-1 border-b border-border">
                           <button className="text-xs text-muted-foreground flex items-center gap-1" onClick={() => updateTask(task.id, { notesExpanded: !task.notesExpanded })}>
                             {task.notesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                            Notes
+                            Notes {task.notes && !task.notesExpanded && <span className="text-muted-foreground/60 ml-1 truncate max-w-[200px] inline-block align-bottom">— {task.notes.split('\n')[0]}</span>}
                           </button>
                           {task.notesExpanded && (
-                            <div className="mt-1">
-                              <Textarea value={task.notes} onChange={(e) => updateTask(task.id, { notes: e.target.value })} placeholder="Notes…" className="text-xs min-h-[60px]" />
-                              {task.notes && (
-                                <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{renderClickableText(task.notes)}</div>
-                              )}
+                            <div className="mt-1 mb-1">
+                              <Textarea
+                                value={task.notes}
+                                onChange={(e) => updateTask(task.id, { notes: e.target.value })}
+                                onBlur={() => save(tasks)}
+                                placeholder="Notes, liens, remarques…"
+                                className="text-xs min-h-[80px] whitespace-pre-wrap"
+                              />
                             </div>
                           )}
                         </div>
