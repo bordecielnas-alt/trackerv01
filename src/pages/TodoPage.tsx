@@ -417,7 +417,7 @@ export default function TodoPage() {
                           title="Couleur"
                         />
                         {colorPicker === task.id && (
-                          <div className="absolute top-5 left-0 z-50 bg-popover border border-border rounded-md p-2 flex gap-1 flex-wrap w-[120px] shadow-lg">
+                          <div className="absolute top-5 left-0 z-50 bg-popover border border-border rounded-md p-2 flex gap-1 flex-wrap w-[160px] shadow-lg">
                             {TASK_COLORS.map((c) => (
                               <button
                                 key={c}
