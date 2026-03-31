@@ -581,7 +581,7 @@ export default function TodoPage() {
                         </div>
                       ))}
                       {/* Separator */}
-                      {gIdx < chartGroups.length - 1 && <div className="h-px bg-border my-1" />}
+                      {gIdx < chartGroups.length - 1 && <div className="h-[10px] flex items-center"><div className="h-px bg-border w-full" /></div>}
                     </Fragment>
                   ))}
                 </div>
