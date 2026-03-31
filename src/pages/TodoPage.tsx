@@ -42,6 +42,9 @@ const ZONES = [
 const TASK_COLORS = [
   "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
   "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#64748b",
+  "#0ea5e9", "#d946ef", "#84cc16", "#f43f5e", "#06b6d4",
+  "#a855f7", "#10b981", "#e11d48", "#7c3aed", "#ca8a04",
+  "#0284c7", "#c026d3", "#65a30d", "#be123c", "#0891b2",
 ];
 
 function uid() {
@@ -328,20 +331,22 @@ export default function TodoPage() {
     if (editingSubtask) { updateSubtask(taskId, editingSubtask, { name: editName }); setEditingSubtask(null); }
   };
 
-  // --- Bubble chart data ---
+  // --- Chart data: grouped by task ---
   const chartTasks = tasks.filter((t) => t.zone !== "done");
-  const chartSubtasks: { taskName: string; taskColor: string; subName: string; date: string; score: number }[] = [];
+  const chartGroups: { taskName: string; taskColor: string; subtasks: { subName: string; scores: Record<string, number> }[] }[] = [];
+  const allChartDatesSet = new Set<string>();
   for (const t of chartTasks) {
+    const subs: { subName: string; scores: Record<string, number> }[] = [];
     for (const st of t.subtasks) {
-      for (const [d, s] of Object.entries(st.scores)) {
-        if (s > 0) chartSubtasks.push({ taskName: t.name, taskColor: t.color || "#6366f1", subName: st.name, date: d, score: s });
+      const hasScores = Object.values(st.scores).some((s) => s > 0);
+      if (hasScores) {
+        subs.push({ subName: st.name, scores: st.scores });
+        for (const d of Object.keys(st.scores)) { if (st.scores[d] > 0) allChartDatesSet.add(d); }
       }
     }
+    if (subs.length > 0) chartGroups.push({ taskName: t.name, taskColor: t.color || "#6366f1", subtasks: subs });
   }
-
-  // Unique subtask names and dates for chart
-  const chartSubNames = [...new Set(chartSubtasks.map((c) => c.subName))];
-  const chartDates = [...new Set(chartSubtasks.map((c) => c.date))].sort();
+  const chartDates = [...allChartDatesSet].sort();
 
   if (!loaded) return <div className="p-6 text-muted-foreground">Chargement…</div>;
 
@@ -412,7 +417,7 @@ export default function TodoPage() {
                           title="Couleur"
                         />
                         {colorPicker === task.id && (
-                          <div className="absolute top-5 left-0 z-50 bg-popover border border-border rounded-md p-2 flex gap-1 flex-wrap w-[120px] shadow-lg">
+                          <div className="absolute top-5 left-0 z-50 bg-popover border border-border rounded-md p-2 flex gap-1 flex-wrap w-[160px] shadow-lg">
                             {TASK_COLORS.map((c) => (
                               <button
                                 key={c}
@@ -556,7 +561,7 @@ export default function TodoPage() {
       })}
 
       {/* Bubble chart for done tasks */}
-      {chartSubtasks.length > 0 && (
+      {chartGroups.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches actives</h2>
           <div className="overflow-x-auto">
@@ -564,8 +569,20 @@ export default function TodoPage() {
               <div className="flex">
                 {/* Y-axis labels */}
                 <div className="flex flex-col pr-2 pt-6">
-                  {chartSubNames.map((name) => (
-                    <div key={name} className="h-10 flex items-center text-xs text-muted-foreground truncate max-w-[120px]">{name}</div>
+                  {chartGroups.map((group, gIdx) => (
+                    <Fragment key={group.taskName + gIdx}>
+                      {/* Task name row */}
+                      <div className="h-7 flex items-center text-xs font-bold truncate max-w-[140px]" style={{ color: group.taskColor }}>
+                        {group.taskName}
+                      </div>
+                      {group.subtasks.map((sub) => (
+                        <div key={sub.subName} className="h-10 flex items-center text-xs text-muted-foreground truncate max-w-[140px] pl-3">
+                          {sub.subName}
+                        </div>
+                      ))}
+                      {/* Separator */}
+                      {gIdx < chartGroups.length - 1 && <div className="h-px bg-border my-1" />}
+                    </Fragment>
                   ))}
                 </div>
                 {/* Chart grid */}
@@ -576,27 +593,40 @@ export default function TodoPage() {
                       <div key={d} className="w-10 text-center text-xs text-muted-foreground shrink-0">{formatShortDate(d)}</div>
                     ))}
                   </div>
-                  {/* Rows */}
-                  {chartSubNames.map((subName) => (
-                    <div key={subName} className="flex h-10 items-center">
-                      {chartDates.map((date) => {
-                        const entry = chartSubtasks.find((c) => c.subName === subName && c.date === date);
-                        const score = entry?.score ?? 0;
-                        const color = entry?.taskColor ?? "transparent";
-                        const size = score === 0 ? 0 : 8 + score * 6;
-                        return (
-                          <div key={date} className="w-10 flex items-center justify-center shrink-0">
-                            {score > 0 && (
-                              <div
-                                className="rounded-full"
-                                style={{ width: size, height: size, backgroundColor: color, opacity: 0.85 }}
-                                title={`${subName} — ${formatShortDate(date)}: ${score}`}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                  {/* Rows grouped by task */}
+                  {chartGroups.map((group, gIdx) => (
+                    <Fragment key={group.taskName + gIdx}>
+                      {/* Empty row for task name alignment */}
+                      <div className="flex h-7 items-center" />
+                      {group.subtasks.map((sub) => (
+                        <div key={sub.subName} className="flex h-10 items-center">
+                          {chartDates.map((date) => {
+                            const score = sub.scores[date] ?? 0;
+                            const maxH = 28;
+                            const barH = score === 0 ? 0 : Math.round((score / 3) * maxH);
+                            return (
+                              <div key={date} className="w-10 flex items-end justify-center shrink-0" style={{ height: maxH }}>
+                                {score > 0 && (
+                                  <div
+                                    className="rounded-sm w-7"
+                                    style={{ height: barH, backgroundColor: group.taskColor, opacity: 0.85 }}
+                                    title={`${group.taskName} / ${sub.subName} — ${formatShortDate(date)}: ${score}`}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                      {/* Separator line */}
+                      {gIdx < chartGroups.length - 1 && (
+                        <div className="flex">
+                          {chartDates.map((d) => (
+                            <div key={d} className="w-10 shrink-0"><div className="h-px bg-border my-1" /></div>
+                          ))}
+                        </div>
+                      )}
+                    </Fragment>
                   ))}
                 </div>
               </div>
