@@ -581,7 +581,7 @@ export default function TodoPage() {
                         </div>
                       ))}
                       {/* Separator */}
-                      {gIdx < chartGroups.length - 1 && <div className="h-px bg-border my-1" />}
+                      {gIdx < chartGroups.length - 1 && <div className="h-[10px] flex items-center"><div className="h-px bg-border w-full" /></div>}
                     </Fragment>
                   ))}
                 </div>
@@ -620,9 +620,9 @@ export default function TodoPage() {
                       ))}
                       {/* Separator line */}
                       {gIdx < chartGroups.length - 1 && (
-                        <div className="flex">
+                        <div className="flex h-[10px] items-center">
                           {chartDates.map((d) => (
-                            <div key={d} className="w-10 shrink-0"><div className="h-px bg-border my-1" /></div>
+                            <div key={d} className="w-10 shrink-0"><div className="h-px bg-border w-full" /></div>
                           ))}
                         </div>
                       )}
