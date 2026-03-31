@@ -331,20 +331,22 @@ export default function TodoPage() {
     if (editingSubtask) { updateSubtask(taskId, editingSubtask, { name: editName }); setEditingSubtask(null); }
   };
 
-  // --- Bubble chart data ---
+  // --- Chart data: grouped by task ---
   const chartTasks = tasks.filter((t) => t.zone !== "done");
-  const chartSubtasks: { taskName: string; taskColor: string; subName: string; date: string; score: number }[] = [];
+  const chartGroups: { taskName: string; taskColor: string; subtasks: { subName: string; scores: Record<string, number> }[] }[] = [];
+  const allChartDatesSet = new Set<string>();
   for (const t of chartTasks) {
+    const subs: { subName: string; scores: Record<string, number> }[] = [];
     for (const st of t.subtasks) {
-      for (const [d, s] of Object.entries(st.scores)) {
-        if (s > 0) chartSubtasks.push({ taskName: t.name, taskColor: t.color || "#6366f1", subName: st.name, date: d, score: s });
+      const hasScores = Object.values(st.scores).some((s) => s > 0);
+      if (hasScores) {
+        subs.push({ subName: st.name, scores: st.scores });
+        for (const d of Object.keys(st.scores)) { if (st.scores[d] > 0) allChartDatesSet.add(d); }
       }
     }
+    if (subs.length > 0) chartGroups.push({ taskName: t.name, taskColor: t.color || "#6366f1", subtasks: subs });
   }
-
-  // Unique subtask names and dates for chart
-  const chartSubNames = [...new Set(chartSubtasks.map((c) => c.subName))];
-  const chartDates = [...new Set(chartSubtasks.map((c) => c.date))].sort();
+  const chartDates = [...allChartDatesSet].sort();
 
   if (!loaded) return <div className="p-6 text-muted-foreground">Chargement…</div>;
 
