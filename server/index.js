@@ -22,6 +22,7 @@ const FILES = {
   routine: path.join(DATA_DIR, "routine.json"),
   preferences: path.join(DATA_DIR, "preferences.json"),
   todo: path.join(DATA_DIR, "todo.json"),
+  habits: path.join(DATA_DIR, "habits.json"),
 };
 
 function readJSON(filePath, fallback) {
