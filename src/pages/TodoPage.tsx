@@ -571,45 +571,48 @@ export default function TodoPage() {
                 <div className="flex flex-col pr-2 pt-6">
                   {chartGroups.map((group, gIdx) => (
                     <Fragment key={group.taskName + gIdx}>
-                      {/* Task name row */}
-                      <div className="h-7 flex items-center text-xs font-bold truncate max-w-[140px]" style={{ color: group.taskColor }}>
+                      <div className="h-6 flex items-center text-xs font-bold truncate max-w-[140px]" style={{ color: group.taskColor }}>
                         {group.taskName}
                       </div>
                       {group.subtasks.map((sub) => (
-                        <div key={sub.subName} className="h-10 flex items-center text-xs text-muted-foreground truncate max-w-[140px] pl-3">
+                        <div key={sub.subName} className="h-8 flex items-center text-xs text-muted-foreground truncate max-w-[140px] pl-3">
                           {sub.subName}
                         </div>
                       ))}
-                      {/* Separator */}
-                      {gIdx < chartGroups.length - 1 && <div className="h-[10px] flex items-center"><div className="h-px bg-border w-full" /></div>}
+                      {gIdx < chartGroups.length - 1 && <div className="h-px bg-border w-full" />}
                     </Fragment>
                   ))}
                 </div>
                 {/* Chart grid */}
                 <div className="flex-1 overflow-x-auto">
-                  {/* X-axis header */}
                   <div className="flex">
                     {chartDates.map((d) => (
-                      <div key={d} className="w-10 text-center text-xs text-muted-foreground shrink-0">{formatShortDate(d)}</div>
+                      <div key={d} className="w-8 text-center text-[10px] text-muted-foreground shrink-0">{formatShortDate(d)}</div>
                     ))}
                   </div>
-                  {/* Rows grouped by task */}
                   {chartGroups.map((group, gIdx) => (
                     <Fragment key={group.taskName + gIdx}>
-                      {/* Empty row for task name alignment */}
-                      <div className="flex h-7 items-center" />
+                      <div className="flex h-6 items-center" />
                       {group.subtasks.map((sub) => (
-                        <div key={sub.subName} className="flex h-10 items-center">
-                          {chartDates.map((date) => {
+                        <div key={sub.subName} className="flex h-8 items-end">
+                          {chartDates.map((date, dIdx) => {
                             const score = sub.scores[date] ?? 0;
                             const maxH = 28;
                             const barH = score === 0 ? 0 : Math.round((score / 3) * maxH);
+                            // Check neighbors for contiguous rendering
+                            const prevDate = dIdx > 0 ? chartDates[dIdx - 1] : null;
+                            const nextDate = dIdx < chartDates.length - 1 ? chartDates[dIdx + 1] : null;
+                            const prevScore = prevDate ? (sub.scores[prevDate] ?? 0) : 0;
+                            const nextScore = nextDate ? (sub.scores[nextDate] ?? 0) : 0;
+                            const hasLeft = prevScore > 0 && score > 0;
+                            const hasRight = nextScore > 0 && score > 0;
+                            const borderRadius = `${hasLeft ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasLeft ? 0 : 3}px`;
                             return (
-                              <div key={date} className="w-10 flex items-end justify-center shrink-0" style={{ height: maxH }}>
+                              <div key={date} className="w-8 flex items-end justify-center shrink-0" style={{ height: maxH }}>
                                 {score > 0 && (
                                   <div
-                                    className="rounded-sm w-7"
-                                    style={{ height: barH, backgroundColor: group.taskColor, opacity: 0.85 }}
+                                    className="w-full"
+                                    style={{ height: barH, backgroundColor: group.taskColor, opacity: 0.85, borderRadius }}
                                     title={`${group.taskName} / ${sub.subName} — ${formatShortDate(date)}: ${score}`}
                                   />
                                 )}
@@ -618,11 +621,10 @@ export default function TodoPage() {
                           })}
                         </div>
                       ))}
-                      {/* Separator line */}
                       {gIdx < chartGroups.length - 1 && (
-                        <div className="flex h-[10px] items-center">
+                        <div className="flex h-px">
                           {chartDates.map((d) => (
-                            <div key={d} className="w-10 shrink-0"><div className="h-px bg-border w-full" /></div>
+                            <div key={d} className="w-8 shrink-0"><div className="h-px bg-border w-full" /></div>
                           ))}
                         </div>
                       )}

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown } from "lucide-react";
 import {
   getSettingsAsync, getEntriesAsync, computeScore, type TrackingParameter, type DailyEntry,
 } from "@/lib/tracking-store";
@@ -39,6 +40,67 @@ function linearRegression(data: { x: number; y: number }[]) {
   const slope = (n * sumXY - sumX * sumY) / denom;
   const intercept = (sumY - slope * sumX) / n;
   return { slope, intercept };
+}
+
+interface TrendInfo {
+  current: number | null;
+  change: number | null;
+  changePercent: number | null;
+  direction: "up" | "down" | "flat";
+  avg: number | null;
+  min: number | null;
+  max: number | null;
+}
+
+function computeTrend(data: Record<string, unknown>[], key: string): TrendInfo {
+  const values = data.map(d => d[key] as number).filter(v => v !== null && v !== undefined && !isNaN(v));
+  if (values.length === 0) return { current: null, change: null, changePercent: null, direction: "flat", avg: null, min: null, max: null };
+
+  const current = values[values.length - 1];
+  const half = Math.floor(values.length / 2);
+  const recentAvg = values.slice(half).reduce((a, b) => a + b, 0) / (values.length - half);
+  const olderAvg = values.slice(0, half || 1).reduce((a, b) => a + b, 0) / (half || 1);
+  const change = Math.round((recentAvg - olderAvg) * 100) / 100;
+  const changePercent = olderAvg !== 0 ? Math.round((change / Math.abs(olderAvg)) * 10000) / 100 : null;
+  const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length * 100) / 100;
+  const min = Math.round(Math.min(...values) * 100) / 100;
+  const max = Math.round(Math.max(...values) * 100) / 100;
+  const direction = Math.abs(change) < 0.01 ? "flat" : change > 0 ? "up" : "down";
+
+  return { current, change, changePercent, direction, avg, min, max };
+}
+
+function TrendBadge({ trend, positiveIsGood = true }: { trend: TrendInfo; positiveIsGood?: boolean }) {
+  if (trend.current === null) return null;
+  const isGood = positiveIsGood ? trend.direction === "up" : trend.direction === "down";
+  const isBad = positiveIsGood ? trend.direction === "down" : trend.direction === "up";
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap text-xs">
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Dernier:</span>
+        <span className="font-semibold text-foreground">{trend.current}</span>
+      </div>
+      {trend.change !== null && (
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${
+          isGood ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+          isBad ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+          "bg-muted text-muted-foreground"
+        }`}>
+          {trend.direction === "up" ? <TrendingUp className="h-3 w-3" /> :
+           trend.direction === "down" ? <TrendingDown className="h-3 w-3" /> :
+           <Minus className="h-3 w-3" />}
+          <span>{trend.change > 0 ? "+" : ""}{trend.change}</span>
+          {trend.changePercent !== null && <span>({trend.changePercent > 0 ? "+" : ""}{trend.changePercent}%)</span>}
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span>Moy: <span className="font-medium text-foreground">{trend.avg}</span></span>
+        <span className="flex items-center gap-0.5"><ArrowDown className="h-3 w-3" />{trend.min}</span>
+        <span className="flex items-center gap-0.5"><ArrowUp className="h-3 w-3" />{trend.max}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function StatisticsPage() {
@@ -80,13 +142,10 @@ export default function StatisticsPage() {
       });
   }, [entries, parameters, formula, rangeDays]);
 
-  // Compute regression lines for score + all visible params
   const chartData = useMemo(() => {
     if (!showRegression || chartType !== "line") return filteredData;
-
     let data = filteredData.map((d) => ({ ...d }));
 
-    // Score regression
     const scorePts = data
       .map((d, i) => ({ x: i, y: d["Score"] as number }))
       .filter((d) => d.y !== null && d.y !== undefined);
@@ -98,7 +157,6 @@ export default function StatisticsPage() {
       }));
     }
 
-    // Parameter regressions
     parameters.forEach((p) => {
       if (!visibleParams.includes(p.id)) return;
       const pts = data
@@ -116,6 +174,9 @@ export default function StatisticsPage() {
     return data;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredData, showRegression, chartType, parameters, JSON.stringify(visibleParams)]);
+
+  // Compute trends
+  const scoreTrend = useMemo(() => computeTrend(filteredData, "Score"), [filteredData]);
 
   const toggleParam = (id: string) => {
     setVisibleParams((prev) => {
@@ -149,52 +210,25 @@ export default function StatisticsPage() {
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         {TIME_RANGES.map((r) => (
-          <Button
-            key={r.days}
-            variant={rangeDays === r.days ? "default" : "outline"}
-            size="sm"
-            onClick={() => setRangeDays(r.days)}
-          >
+          <Button key={r.days} variant={rangeDays === r.days ? "default" : "outline"} size="sm" onClick={() => setRangeDays(r.days)}>
             {r.label}
           </Button>
         ))}
         <div className="flex items-center gap-1">
-          <Input
-            type="number"
-            placeholder="Jours"
-            className="w-20 h-8"
-            value={customDays}
-            onChange={(e) => setCustomDays(e.target.value)}
-          />
-          <Button size="sm" variant="outline" onClick={handleCustomDays}>
-            OK
-          </Button>
+          <Input type="number" placeholder="Jours" className="w-20 h-8" value={customDays} onChange={(e) => setCustomDays(e.target.value)} />
+          <Button size="sm" variant="outline" onClick={handleCustomDays}>OK</Button>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <Button
-            variant={chartType === "line" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setChartType("line")}
-          >
-            Courbe
-          </Button>
-          <Button
-            variant={chartType === "bar" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setChartType("bar")}
-          >
-            Histogramme
-          </Button>
+          <Button variant={chartType === "line" ? "default" : "outline"} size="sm" onClick={() => setChartType("line")}>Courbe</Button>
+          <Button variant={chartType === "bar" ? "default" : "outline"} size="sm" onClick={() => setChartType("bar")}>Histogramme</Button>
         </div>
       </div>
 
-      {/* Regression toggle */}
       <div className="flex items-center gap-2">
         <Switch checked={showRegression} onCheckedChange={setShowRegression} />
         <Label className="text-sm">Régression linéaire</Label>
       </div>
 
-      {/* Parameter toggles */}
       {parameters.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {parameters.map((p, i) => (
@@ -203,11 +237,7 @@ export default function StatisticsPage() {
               variant={visibleParams.includes(p.id) ? "default" : "outline"}
               size="sm"
               onClick={() => toggleParam(p.id)}
-              style={
-                visibleParams.includes(p.id)
-                  ? { backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }
-                  : {}
-              }
+              style={visibleParams.includes(p.id) ? { backgroundColor: CHART_COLORS[i % CHART_COLORS.length] } : {}}
             >
               {p.name}
             </Button>
@@ -217,8 +247,9 @@ export default function StatisticsPage() {
 
       {/* Score chart */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <CardTitle className="text-lg">Score</CardTitle>
+          <TrendBadge trend={scoreTrend} />
         </CardHeader>
         <CardContent>
           {chartData.length === 0 ? (
@@ -252,42 +283,44 @@ export default function StatisticsPage() {
         </CardContent>
       </Card>
 
-      {/* Parameter charts - ordered by selection */}
+      {/* Parameter charts */}
       {visibleParams
         .map((id) => parameters.find((p) => p.id === id))
         .filter(Boolean)
         .map((p) => {
           const paramIdx = parameters.findIndex((pp) => pp.id === p!.id);
+          const paramTrend = computeTrend(filteredData, p!.name);
           return (
-          <Card key={p!.id}>
-            <CardHeader>
-              <CardTitle className="text-lg">{p!.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                {chartType === "line" ? (
-                  <LineChart data={chartData} onClick={() => setActiveDot(true)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey={p!.name} stroke={CHART_COLORS[paramIdx % CHART_COLORS.length]} strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
-                    {showRegression && (
-                      <Line type="monotone" dataKey={`${p!.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                    )}
-                  </LineChart>
-                ) : (
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey={p!.name} fill={CHART_COLORS[paramIdx % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            <Card key={p!.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{p!.name}</CardTitle>
+                <TrendBadge trend={paramTrend} />
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  {chartType === "line" ? (
+                    <LineChart data={chartData} onClick={() => setActiveDot(true)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey={p!.name} stroke={CHART_COLORS[paramIdx % CHART_COLORS.length]} strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
+                      {showRegression && (
+                        <Line type="monotone" dataKey={`${p!.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      )}
+                    </LineChart>
+                  ) : (
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Bar dataKey={p!.name} fill={CHART_COLORS[paramIdx % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  )}
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           );
         })}
     </div>
