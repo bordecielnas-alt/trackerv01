@@ -13,6 +13,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import StatisticsPage from "@/pages/StatisticsPage";
 import EditionPage from "@/pages/EditionPage";
 import TodoPage from "@/pages/TodoPage";
+import HabitsPage from "@/pages/HabitsPage";
 import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/NotFound";
 
