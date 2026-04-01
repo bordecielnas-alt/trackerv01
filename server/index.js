@@ -115,6 +115,16 @@ app.put("/api/todo", (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Habits ---
+app.get("/api/habits", (_req, res) => {
+  res.json(readJSON(FILES.habits, { habits: [], xp: 0, level: 1, badges: [] }));
+});
+
+app.put("/api/habits", (req, res) => {
+  writeJSON(FILES.habits, req.body);
+  res.json({ ok: true });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Tracker backend listening on port ${PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
