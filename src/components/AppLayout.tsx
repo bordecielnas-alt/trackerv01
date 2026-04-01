@@ -10,6 +10,7 @@ const navItems = [
   { to: "/statistics", label: "Statistiques", icon: BarChart3 },
   { to: "/routine", label: "Routine", icon: Clock },
   { to: "/todo", label: "To Do", icon: ListTodo },
+  { to: "/habits", label: "Habitudes", icon: Repeat },
   { to: "/settings", label: "Réglages", icon: Settings },
   { to: "/edition", label: "Édition", icon: TableProperties },
   { to: "/admin", label: "Admin", icon: ShieldCheck },
