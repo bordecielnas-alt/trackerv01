@@ -115,7 +115,7 @@ export default function HabitsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Habit>>({});
   const [showAdd, setShowAdd] = useState(false);
-  const [newHabit, setNewHabit] = useState({ name: "", category: "build" as const, cue: "", routine: "", reward: "", frequency: "daily" as const });
+  const [newHabit, setNewHabit] = useState<{ name: string; category: "build" | "break"; cue: string; routine: string; reward: string; frequency: "daily" | "weekly" | "custom" }>({ name: "", category: "build", cue: "", routine: "", reward: "", frequency: "daily" });
 
   useEffect(() => {
     apiGet<HabitsData>("habits", "habits-data", { habits: [], xp: 0, level: 1, badges: [] }).then((data) => {
