@@ -367,21 +367,21 @@ export default function TodoPage() {
   };
 
   // --- Chart data: grouped by task ---
+  // The chart uses the SAME visible date window as the task tables, so columns stay aligned.
   const chartTasks = tasks.filter((t) => t.zone !== "done");
   const chartGroups: { taskName: string; taskColor: string; subtasks: { subName: string; scores: Record<string, number> }[] }[] = [];
-  const allChartDatesSet = new Set<string>();
   for (const t of chartTasks) {
     const subs: { subName: string; scores: Record<string, number> }[] = [];
     for (const st of t.subtasks) {
-      const hasScores = Object.values(st.scores).some((s) => s > 0);
-      if (hasScores) {
+      // Keep sub if it has any score in the visible window (so chart reflects window navigation)
+      const hasScoresInWindow = dates.some((d) => (st.scores[d] ?? 0) > 0);
+      if (hasScoresInWindow) {
         subs.push({ subName: st.name, scores: st.scores });
-        for (const d of Object.keys(st.scores)) { if (st.scores[d] > 0) allChartDatesSet.add(d); }
       }
     }
     if (subs.length > 0) chartGroups.push({ taskName: t.name, taskColor: t.color || "#6366f1", subtasks: subs });
   }
-  const chartDates = [...allChartDatesSet].sort();
+  const chartDates = dates;
 
   if (!loaded) return <div className="p-6 text-muted-foreground">Chargement…</div>;
 
