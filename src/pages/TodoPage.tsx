@@ -61,10 +61,25 @@ function calcTotalScore(subtasks: SubTask[]): number {
   return total;
 }
 
-function generateDates(count: number): string[] {
+const PAST_DAYS = 180;
+const FUTURE_DAYS = 185;
+const TOTAL_DAYS = PAST_DAYS + FUTURE_DAYS;
+const COL_WIDTH = 40;
+const STICKY_COL_WIDTH = 180;
+
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function generateDates(count: number = TOTAL_DAYS): string[] {
   const dates: string[] = [];
   const today = new Date();
-  for (let i = -7; i < count - 7; i++) {
+  const past = count >= TOTAL_DAYS ? PAST_DAYS : 7;
+  for (let i = -past; i < count - past; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() + i);
     const y = d.getFullYear();
