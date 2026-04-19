@@ -62,9 +62,8 @@ function calcTotalScore(subtasks: SubTask[]): number {
   return total;
 }
 
-const PAST_DAYS = 180;
-const FUTURE_DAYS = 185;
-const TOTAL_DAYS = PAST_DAYS + FUTURE_DAYS;
+const WINDOW_DAYS = 30; // Number of date columns visible at once
+const SHIFT_DAYS = 30;  // Days shifted per arrow click
 const COL_WIDTH = 40;
 const STICKY_COL_WIDTH = 180;
 
@@ -76,17 +75,28 @@ function todayStr() {
   return `${y}-${m}-${day}`;
 }
 
-function generateDates(count: number = TOTAL_DAYS): string[] {
+function dateToStr(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Build a sliding window of WINDOW_DAYS dates.
+ * `offsetDays` shifts the window relative to a today-centered baseline.
+ * - offset=0  → window centered on today
+ * - offset=-30 → 30 days earlier (past)
+ * - offset=+30 → 30 days later (future)
+ */
+function buildDateWindow(offsetDays: number): string[] {
   const dates: string[] = [];
   const today = new Date();
-  const past = count >= TOTAL_DAYS ? PAST_DAYS : 7;
-  for (let i = -past; i < count - past; i++) {
+  const startOffset = -Math.floor(WINDOW_DAYS / 2) + offsetDays;
+  for (let i = 0; i < WINDOW_DAYS; i++) {
     const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    dates.push(`${y}-${m}-${day}`);
+    d.setDate(d.getDate() + startOffset + i);
+    dates.push(dateToStr(d));
   }
   return dates;
 }
