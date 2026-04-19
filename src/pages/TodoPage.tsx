@@ -204,7 +204,7 @@ function NotesEditor({ value, onChange, onBlur }: { value: string; onChange: (v:
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [dates, setDates] = useState<string[]>(() => generateDates(30));
+  const [dates, setDates] = useState<string[]>(() => generateDates());
   const [hideDone, setHideDone] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [editingTask, setEditingTask] = useState<string | null>(null);
@@ -222,14 +222,60 @@ export default function TodoPage() {
   const [dragSubId, setDragSubId] = useState<{ taskId: string; subId: string } | null>(null);
   const [dragOverSubIdx, setDragOverSubIdx] = useState<number | null>(null);
 
+  // Shared horizontal scroll
+  const masterScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const isSyncingRef = useRef(false);
+  const initialCenteredRef = useRef(false);
+  const today = todayStr();
+
+  const syncScroll = useCallback((sourceLeft: number, source: HTMLElement) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    if (masterScrollRef.current && masterScrollRef.current !== source) {
+      masterScrollRef.current.scrollLeft = sourceLeft;
+    }
+    tableScrollRefs.current.forEach((el) => {
+      if (el && el !== source) el.scrollLeft = sourceLeft;
+    });
+    requestAnimationFrame(() => { isSyncingRef.current = false; });
+  }, []);
+
+  const registerTableRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) {
+      tableScrollRefs.current.set(id, el);
+      // Apply current master scroll position when newly registered
+      if (masterScrollRef.current) {
+        el.scrollLeft = masterScrollRef.current.scrollLeft;
+      }
+    } else {
+      tableScrollRefs.current.delete(id);
+    }
+  }, []);
+
   useEffect(() => {
     apiGet<TodoData>("todo", "todo-data", { tasks: [], dates: [] }).then((data) => {
       if (data.tasks?.length) setTasks(data.tasks);
-      if (data.dates?.length) setDates(data.dates);
-      else setDates(generateDates(30));
+      // Always regenerate dates to ensure full 365-day window centered on today
+      setDates(generateDates());
       setLoaded(true);
     });
   }, []);
+
+  // Center on today after first load
+  useEffect(() => {
+    if (!loaded || initialCenteredRef.current) return;
+    if (!masterScrollRef.current) return;
+    const todayIdx = dates.indexOf(today);
+    if (todayIdx < 0) return;
+    const container = masterScrollRef.current;
+    const todayCenter = todayIdx * COL_WIDTH + COL_WIDTH / 2;
+    const visibleWidth = container.clientWidth - STICKY_COL_WIDTH;
+    const target = Math.max(0, todayCenter - visibleWidth / 2);
+    container.scrollLeft = target;
+    syncScroll(target, container);
+    initialCenteredRef.current = true;
+  }, [loaded, dates, today, syncScroll]);
 
   const save = useCallback(
     (t: Task[], d?: string[]) => {
