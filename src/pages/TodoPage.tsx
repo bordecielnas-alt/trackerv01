@@ -636,19 +636,22 @@ export default function TodoPage() {
       {/* Bubble chart for done tasks */}
       {chartGroups.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches actives</h2>
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">
+            Graphique des tâches actives
+            <span className="ml-2 text-xs font-normal text-muted-foreground normal-case">— {rangeLabel}</span>
+          </h2>
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full">
               <div className="flex">
-                {/* Y-axis labels */}
-                <div className="flex flex-col pr-2 pt-6">
+                {/* Y-axis labels — width matches the sticky "Sous-tâche" column above */}
+                <div className="flex flex-col pr-2 pt-6 shrink-0" style={{ width: STICKY_COL_WIDTH }}>
                   {chartGroups.map((group, gIdx) => (
                     <Fragment key={group.taskName + gIdx}>
-                      <div className="h-6 flex items-center text-xs font-bold truncate max-w-[140px]" style={{ color: group.taskColor }}>
+                      <div className="h-6 flex items-center text-xs font-bold truncate" style={{ color: group.taskColor }}>
                         {group.taskName}
                       </div>
                       {group.subtasks.map((sub) => (
-                        <div key={sub.subName} className="h-8 flex items-center text-xs text-muted-foreground truncate max-w-[140px] pl-3">
+                        <div key={sub.subName} className="h-8 flex items-center text-xs text-muted-foreground truncate pl-3">
                           {sub.subName}
                         </div>
                       ))}
@@ -656,11 +659,20 @@ export default function TodoPage() {
                     </Fragment>
                   ))}
                 </div>
-                {/* Chart grid */}
-                <div className="flex-1 overflow-x-auto">
+                {/* Chart grid — column width matches the table date columns (COL_WIDTH) */}
+                <div className="flex-1">
                   <div className="flex">
                     {chartDates.map((d) => (
-                      <div key={d} className="w-8 text-center text-[10px] text-muted-foreground shrink-0">{formatShortDate(d)}</div>
+                      <div
+                        key={d}
+                        className={cn(
+                          "text-center text-[10px] shrink-0 px-1 whitespace-nowrap",
+                          d === today ? "text-primary font-semibold" : "text-muted-foreground"
+                        )}
+                        style={{ width: COL_WIDTH }}
+                      >
+                        {formatShortDate(d)}
+                      </div>
                     ))}
                   </div>
                   {chartGroups.map((group, gIdx) => (
@@ -681,7 +693,11 @@ export default function TodoPage() {
                             const hasRight = nextScore > 0 && score > 0;
                             const borderRadius = `${hasLeft ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasLeft ? 0 : 3}px`;
                             return (
-                              <div key={date} className="w-8 flex items-end justify-center shrink-0" style={{ height: maxH }}>
+                              <div
+                                key={date}
+                                className={cn("flex items-end justify-center shrink-0", date === today && "bg-primary/5")}
+                                style={{ height: maxH, width: COL_WIDTH }}
+                              >
                                 {score > 0 && (
                                   <div
                                     className="w-full"
@@ -697,7 +713,7 @@ export default function TodoPage() {
                       {gIdx < chartGroups.length - 1 && (
                         <div className="flex h-px">
                           {chartDates.map((d) => (
-                            <div key={d} className="w-8 shrink-0"><div className="h-px bg-border w-full" /></div>
+                            <div key={d} className="shrink-0" style={{ width: COL_WIDTH }}><div className="h-px bg-border w-full" /></div>
                           ))}
                         </div>
                       )}
