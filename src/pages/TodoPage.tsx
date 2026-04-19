@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical,
-  Eye, EyeOff, Pencil, Check, X, ChevronsDownUp, ChevronsUpDown, Palette
+  Eye, EyeOff, Pencil, Check, X, ChevronsDownUp, ChevronsUpDown, Palette,
+  ChevronLeft, ChevronsLeft, ChevronsRight, Calendar
 } from "lucide-react";
 import { apiGet, apiPut } from "@/lib/api";
 import { cn } from "@/lib/utils";
