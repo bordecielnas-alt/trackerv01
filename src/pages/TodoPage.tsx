@@ -549,11 +549,8 @@ export default function TodoPage() {
                         </div>
 
                         {/* Subtasks + date grid */}
-                        <div
-                          ref={(el) => registerTableRef(task.id, el)}
-                          onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
-                          className="overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
-                        >
+                        <div className="overflow-x-auto">
+
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border">
