@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical,
-  Eye, EyeOff, Pencil, Check, X, ChevronsDownUp, ChevronsUpDown, Palette
+  Eye, EyeOff, Pencil, Check, X, ChevronsDownUp, ChevronsUpDown, Palette,
+  ChevronLeft, ChevronsLeft, ChevronsRight, Calendar
 } from "lucide-react";
 import { apiGet, apiPut } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -61,9 +62,8 @@ function calcTotalScore(subtasks: SubTask[]): number {
   return total;
 }
 
-const PAST_DAYS = 180;
-const FUTURE_DAYS = 185;
-const TOTAL_DAYS = PAST_DAYS + FUTURE_DAYS;
+const WINDOW_DAYS = 30; // Number of date columns visible at once
+const SHIFT_DAYS = 30;  // Days shifted per arrow click
 const COL_WIDTH = 40;
 const STICKY_COL_WIDTH = 180;
 
@@ -75,17 +75,28 @@ function todayStr() {
   return `${y}-${m}-${day}`;
 }
 
-function generateDates(count: number = TOTAL_DAYS): string[] {
+function dateToStr(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Build a sliding window of WINDOW_DAYS dates.
+ * `offsetDays` shifts the window relative to a today-centered baseline.
+ * - offset=0  → window centered on today
+ * - offset=-30 → 30 days earlier (past)
+ * - offset=+30 → 30 days later (future)
+ */
+function buildDateWindow(offsetDays: number): string[] {
   const dates: string[] = [];
   const today = new Date();
-  const past = count >= TOTAL_DAYS ? PAST_DAYS : 7;
-  for (let i = -past; i < count - past; i++) {
+  const startOffset = -Math.floor(WINDOW_DAYS / 2) + offsetDays;
+  for (let i = 0; i < WINDOW_DAYS; i++) {
     const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    dates.push(`${y}-${m}-${day}`);
+    d.setDate(d.getDate() + startOffset + i);
+    dates.push(dateToStr(d));
   }
   return dates;
 }
@@ -204,7 +215,8 @@ function NotesEditor({ value, onChange, onBlur }: { value: string; onChange: (v:
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [dates, setDates] = useState<string[]>(() => generateDates());
+  const [windowOffset, setWindowOffset] = useState<number>(0); // in days, 0 = today-centered
+  const dates = buildDateWindow(windowOffset);
   const [hideDone, setHideDone] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [editingTask, setEditingTask] = useState<string | null>(null);
@@ -222,67 +234,29 @@ export default function TodoPage() {
   const [dragSubId, setDragSubId] = useState<{ taskId: string; subId: string } | null>(null);
   const [dragOverSubIdx, setDragOverSubIdx] = useState<number | null>(null);
 
-  // Shared horizontal scroll
-  const masterScrollRef = useRef<HTMLDivElement>(null);
-  const tableScrollRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const isSyncingRef = useRef(false);
-  const initialCenteredRef = useRef(false);
   const today = todayStr();
-
-  const syncScroll = useCallback((sourceLeft: number, source: HTMLElement) => {
-    if (isSyncingRef.current) return;
-    isSyncingRef.current = true;
-    if (masterScrollRef.current && masterScrollRef.current !== source) {
-      masterScrollRef.current.scrollLeft = sourceLeft;
-    }
-    tableScrollRefs.current.forEach((el) => {
-      if (el && el !== source) el.scrollLeft = sourceLeft;
-    });
-    requestAnimationFrame(() => { isSyncingRef.current = false; });
-  }, []);
-
-  const registerTableRef = useCallback((id: string, el: HTMLDivElement | null) => {
-    if (el) {
-      tableScrollRefs.current.set(id, el);
-      // Apply current master scroll position when newly registered
-      if (masterScrollRef.current) {
-        el.scrollLeft = masterScrollRef.current.scrollLeft;
-      }
-    } else {
-      tableScrollRefs.current.delete(id);
-    }
-  }, []);
 
   useEffect(() => {
     apiGet<TodoData>("todo", "todo-data", { tasks: [], dates: [] }).then((data) => {
       if (data.tasks?.length) setTasks(data.tasks);
-      // Always regenerate dates to ensure full 365-day window centered on today
-      setDates(generateDates());
+      // Note: `dates` field is no longer driven by storage — we always show a sliding window.
       setLoaded(true);
     });
   }, []);
 
-  // Center on today after first load
-  useEffect(() => {
-    if (!loaded || initialCenteredRef.current) return;
-    if (!masterScrollRef.current) return;
-    const todayIdx = dates.indexOf(today);
-    if (todayIdx < 0) return;
-    const container = masterScrollRef.current;
-    const todayCenter = todayIdx * COL_WIDTH + COL_WIDTH / 2;
-    const visibleWidth = container.clientWidth - STICKY_COL_WIDTH;
-    const target = Math.max(0, todayCenter - visibleWidth / 2);
-    container.scrollLeft = target;
-    syncScroll(target, container);
-    initialCenteredRef.current = true;
-  }, [loaded, dates, today, syncScroll]);
+  // Window navigation
+  const shiftWindow = (days: number) => setWindowOffset((o) => o + days);
+  const resetWindow = () => setWindowOffset(0);
 
-  const save = useCallback(
-    (t: Task[], d?: string[]) => {
-      apiPut("todo", "todo-data", { tasks: t, dates: d ?? dates });
-    },
-    [dates]
-  );
+  // Range label (first → last visible date)
+  const rangeLabel = dates.length > 0
+    ? `${formatShortDate(dates[0])} → ${formatShortDate(dates[dates.length - 1])}`
+    : "";
+
+  const save = useCallback((t: Task[]) => {
+    // Persist tasks only; dates are window-driven and not stored.
+    apiPut("todo", "todo-data", { tasks: t, dates: [] });
+  }, []);
 
   const updateTasks = (newTasks: Task[]) => {
     setTasks(newTasks);
@@ -393,21 +367,21 @@ export default function TodoPage() {
   };
 
   // --- Chart data: grouped by task ---
+  // The chart uses the SAME visible date window as the task tables, so columns stay aligned.
   const chartTasks = tasks.filter((t) => t.zone !== "done");
   const chartGroups: { taskName: string; taskColor: string; subtasks: { subName: string; scores: Record<string, number> }[] }[] = [];
-  const allChartDatesSet = new Set<string>();
   for (const t of chartTasks) {
     const subs: { subName: string; scores: Record<string, number> }[] = [];
     for (const st of t.subtasks) {
-      const hasScores = Object.values(st.scores).some((s) => s > 0);
-      if (hasScores) {
+      // Keep sub if it has any score in the visible window (so chart reflects window navigation)
+      const hasScoresInWindow = dates.some((d) => (st.scores[d] ?? 0) > 0);
+      if (hasScoresInWindow) {
         subs.push({ subName: st.name, scores: st.scores });
-        for (const d of Object.keys(st.scores)) { if (st.scores[d] > 0) allChartDatesSet.add(d); }
       }
     }
     if (subs.length > 0) chartGroups.push({ taskName: t.name, taskColor: t.color || "#6366f1", subtasks: subs });
   }
-  const chartDates = [...allChartDatesSet].sort();
+  const chartDates = dates;
 
   if (!loaded) return <div className="p-6 text-muted-foreground">Chargement…</div>;
 
@@ -427,14 +401,33 @@ export default function TodoPage() {
         </div>
       </div>
 
-      {/* Master horizontal scrollbar — sticky, drives all task tables */}
-      <div
-        ref={masterScrollRef}
-        onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
-        className="sticky top-0 z-30 overflow-x-auto bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border border-border rounded-md shadow-sm"
-        style={{ height: 16 }}
-      >
-        <div style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH, height: 1 }} />
+      {/* Date window navigation — arrows shift the visible 30-day window */}
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border border-border rounded-md p-2 shadow-sm">
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(-SHIFT_DAYS)} title="Mois précédent">
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(-7)} title="Semaine précédente">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium text-foreground tabular-nums">{rangeLabel}</span>
+          {windowOffset !== 0 && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetWindow}>
+              Aujourd'hui
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(7)} title="Semaine suivante">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(SHIFT_DAYS)} title="Mois suivant">
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {ZONES.filter((z) => !(z.key === "done" && hideDone)).map((zone) => {
@@ -556,11 +549,8 @@ export default function TodoPage() {
                         </div>
 
                         {/* Subtasks + date grid */}
-                        <div
-                          ref={(el) => registerTableRef(task.id, el)}
-                          onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
-                          className="overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
-                        >
+                        <div className="overflow-x-auto">
+
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border">
@@ -646,19 +636,22 @@ export default function TodoPage() {
       {/* Bubble chart for done tasks */}
       {chartGroups.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Graphique des tâches actives</h2>
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">
+            Graphique des tâches actives
+            <span className="ml-2 text-xs font-normal text-muted-foreground normal-case">— {rangeLabel}</span>
+          </h2>
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full">
               <div className="flex">
-                {/* Y-axis labels */}
-                <div className="flex flex-col pr-2 pt-6">
+                {/* Y-axis labels — width matches the sticky "Sous-tâche" column above */}
+                <div className="flex flex-col pr-2 pt-6 shrink-0" style={{ width: STICKY_COL_WIDTH }}>
                   {chartGroups.map((group, gIdx) => (
                     <Fragment key={group.taskName + gIdx}>
-                      <div className="h-6 flex items-center text-xs font-bold truncate max-w-[140px]" style={{ color: group.taskColor }}>
+                      <div className="h-6 flex items-center text-xs font-bold truncate" style={{ color: group.taskColor }}>
                         {group.taskName}
                       </div>
                       {group.subtasks.map((sub) => (
-                        <div key={sub.subName} className="h-8 flex items-center text-xs text-muted-foreground truncate max-w-[140px] pl-3">
+                        <div key={sub.subName} className="h-8 flex items-center text-xs text-muted-foreground truncate pl-3">
                           {sub.subName}
                         </div>
                       ))}
@@ -666,11 +659,20 @@ export default function TodoPage() {
                     </Fragment>
                   ))}
                 </div>
-                {/* Chart grid */}
-                <div className="flex-1 overflow-x-auto">
+                {/* Chart grid — column width matches the table date columns (COL_WIDTH) */}
+                <div className="flex-1">
                   <div className="flex">
                     {chartDates.map((d) => (
-                      <div key={d} className="w-8 text-center text-[10px] text-muted-foreground shrink-0">{formatShortDate(d)}</div>
+                      <div
+                        key={d}
+                        className={cn(
+                          "text-center text-[10px] shrink-0 px-1 whitespace-nowrap",
+                          d === today ? "text-primary font-semibold" : "text-muted-foreground"
+                        )}
+                        style={{ width: COL_WIDTH }}
+                      >
+                        {formatShortDate(d)}
+                      </div>
                     ))}
                   </div>
                   {chartGroups.map((group, gIdx) => (
@@ -691,7 +693,11 @@ export default function TodoPage() {
                             const hasRight = nextScore > 0 && score > 0;
                             const borderRadius = `${hasLeft ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasLeft ? 0 : 3}px`;
                             return (
-                              <div key={date} className="w-8 flex items-end justify-center shrink-0" style={{ height: maxH }}>
+                              <div
+                                key={date}
+                                className={cn("flex items-end justify-center shrink-0", date === today && "bg-primary/5")}
+                                style={{ height: maxH, width: COL_WIDTH }}
+                              >
                                 {score > 0 && (
                                   <div
                                     className="w-full"
@@ -707,7 +713,7 @@ export default function TodoPage() {
                       {gIdx < chartGroups.length - 1 && (
                         <div className="flex h-px">
                           {chartDates.map((d) => (
-                            <div key={d} className="w-8 shrink-0"><div className="h-px bg-border w-full" /></div>
+                            <div key={d} className="shrink-0" style={{ width: COL_WIDTH }}><div className="h-px bg-border w-full" /></div>
                           ))}
                         </div>
                       )}
