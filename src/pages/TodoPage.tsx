@@ -437,7 +437,7 @@ export default function TodoPage() {
         <div style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH, height: 1 }} />
       </div>
 
-
+      {ZONES.filter((z) => !(z.key === "done" && hideDone)).map((zone) => {
         const zoneTasks = tasks.filter((t) => t.zone === zone.key);
         return (
           <div
