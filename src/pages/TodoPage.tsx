@@ -61,10 +61,25 @@ function calcTotalScore(subtasks: SubTask[]): number {
   return total;
 }
 
-function generateDates(count: number): string[] {
+const PAST_DAYS = 180;
+const FUTURE_DAYS = 185;
+const TOTAL_DAYS = PAST_DAYS + FUTURE_DAYS;
+const COL_WIDTH = 40;
+const STICKY_COL_WIDTH = 180;
+
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function generateDates(count: number = TOTAL_DAYS): string[] {
   const dates: string[] = [];
   const today = new Date();
-  for (let i = -7; i < count - 7; i++) {
+  const past = count >= TOTAL_DAYS ? PAST_DAYS : 7;
+  for (let i = -past; i < count - past; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() + i);
     const y = d.getFullYear();
@@ -189,7 +204,7 @@ function NotesEditor({ value, onChange, onBlur }: { value: string; onChange: (v:
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [dates, setDates] = useState<string[]>(() => generateDates(30));
+  const [dates, setDates] = useState<string[]>(() => generateDates());
   const [hideDone, setHideDone] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [editingTask, setEditingTask] = useState<string | null>(null);
@@ -207,14 +222,60 @@ export default function TodoPage() {
   const [dragSubId, setDragSubId] = useState<{ taskId: string; subId: string } | null>(null);
   const [dragOverSubIdx, setDragOverSubIdx] = useState<number | null>(null);
 
+  // Shared horizontal scroll
+  const masterScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const isSyncingRef = useRef(false);
+  const initialCenteredRef = useRef(false);
+  const today = todayStr();
+
+  const syncScroll = useCallback((sourceLeft: number, source: HTMLElement) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    if (masterScrollRef.current && masterScrollRef.current !== source) {
+      masterScrollRef.current.scrollLeft = sourceLeft;
+    }
+    tableScrollRefs.current.forEach((el) => {
+      if (el && el !== source) el.scrollLeft = sourceLeft;
+    });
+    requestAnimationFrame(() => { isSyncingRef.current = false; });
+  }, []);
+
+  const registerTableRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) {
+      tableScrollRefs.current.set(id, el);
+      // Apply current master scroll position when newly registered
+      if (masterScrollRef.current) {
+        el.scrollLeft = masterScrollRef.current.scrollLeft;
+      }
+    } else {
+      tableScrollRefs.current.delete(id);
+    }
+  }, []);
+
   useEffect(() => {
     apiGet<TodoData>("todo", "todo-data", { tasks: [], dates: [] }).then((data) => {
       if (data.tasks?.length) setTasks(data.tasks);
-      if (data.dates?.length) setDates(data.dates);
-      else setDates(generateDates(30));
+      // Always regenerate dates to ensure full 365-day window centered on today
+      setDates(generateDates());
       setLoaded(true);
     });
   }, []);
+
+  // Center on today after first load
+  useEffect(() => {
+    if (!loaded || initialCenteredRef.current) return;
+    if (!masterScrollRef.current) return;
+    const todayIdx = dates.indexOf(today);
+    if (todayIdx < 0) return;
+    const container = masterScrollRef.current;
+    const todayCenter = todayIdx * COL_WIDTH + COL_WIDTH / 2;
+    const visibleWidth = container.clientWidth - STICKY_COL_WIDTH;
+    const target = Math.max(0, todayCenter - visibleWidth / 2);
+    container.scrollLeft = target;
+    syncScroll(target, container);
+    initialCenteredRef.current = true;
+  }, [loaded, dates, today, syncScroll]);
 
   const save = useCallback(
     (t: Task[], d?: string[]) => {
@@ -366,6 +427,16 @@ export default function TodoPage() {
         </div>
       </div>
 
+      {/* Master horizontal scrollbar — sticky, drives all task tables */}
+      <div
+        ref={masterScrollRef}
+        onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
+        className="sticky top-0 z-30 overflow-x-auto bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border border-border rounded-md shadow-sm"
+        style={{ height: 16 }}
+      >
+        <div style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH, height: 1 }} />
+      </div>
+
       {ZONES.filter((z) => !(z.key === "done" && hideDone)).map((zone) => {
         const zoneTasks = tasks.filter((t) => t.zone === zone.key);
         return (
@@ -485,13 +556,25 @@ export default function TodoPage() {
                         </div>
 
                         {/* Subtasks + date grid */}
-                        <div className="overflow-x-auto">
+                        <div
+                          ref={(el) => registerTableRef(task.id, el)}
+                          onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
+                          className="overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                        >
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border">
                                 <th className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground min-w-[180px]">Sous-tâche</th>
                                 {dates.map((d) => (
-                                  <th key={d} className="px-1 py-1 text-center font-medium text-muted-foreground whitespace-nowrap min-w-[40px]">{formatShortDate(d)}</th>
+                                  <th
+                                    key={d}
+                                    className={cn(
+                                      "px-1 py-1 text-center font-medium whitespace-nowrap min-w-[40px]",
+                                      d === today ? "text-primary bg-primary/10" : "text-muted-foreground"
+                                    )}
+                                  >
+                                    {formatShortDate(d)}
+                                  </th>
                                 ))}
                               </tr>
                             </thead>
@@ -527,7 +610,7 @@ export default function TodoPage() {
                                   {dates.map((d) => {
                                     const score = st.scores[d] ?? 0;
                                     return (
-                                      <td key={d} className="px-1 py-1 text-center">
+                                      <td key={d} className={cn("px-1 py-1 text-center", d === today && "bg-primary/5")}>
                                         <button
                                           onClick={() => cycleScore(task.id, st.id, d)}
                                           className={cn("w-7 h-7 rounded text-xs font-semibold transition-colors",
