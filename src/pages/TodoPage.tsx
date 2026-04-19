@@ -427,7 +427,17 @@ export default function TodoPage() {
         </div>
       </div>
 
-      {ZONES.filter((z) => !(z.key === "done" && hideDone)).map((zone) => {
+      {/* Master horizontal scrollbar — sticky, drives all task tables */}
+      <div
+        ref={masterScrollRef}
+        onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
+        className="sticky top-0 z-30 overflow-x-auto bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border border-border rounded-md shadow-sm"
+        style={{ height: 16 }}
+      >
+        <div style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH, height: 1 }} />
+      </div>
+
+
         const zoneTasks = tasks.filter((t) => t.zone === zone.key);
         return (
           <div
