@@ -401,14 +401,33 @@ export default function TodoPage() {
         </div>
       </div>
 
-      {/* Master horizontal scrollbar — sticky, drives all task tables */}
-      <div
-        ref={masterScrollRef}
-        onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
-        className="sticky top-0 z-30 overflow-x-auto bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border border-border rounded-md shadow-sm"
-        style={{ height: 16 }}
-      >
-        <div style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH, height: 1 }} />
+      {/* Date window navigation — arrows shift the visible 30-day window */}
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border border-border rounded-md p-2 shadow-sm">
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(-SHIFT_DAYS)} title="Mois précédent">
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(-7)} title="Semaine précédente">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium text-foreground tabular-nums">{rangeLabel}</span>
+          {windowOffset !== 0 && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetWindow}>
+              Aujourd'hui
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(7)} title="Semaine suivante">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => shiftWindow(SHIFT_DAYS)} title="Mois suivant">
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {ZONES.filter((z) => !(z.key === "done" && hideDone)).map((zone) => {
