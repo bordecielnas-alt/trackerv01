@@ -556,13 +556,25 @@ export default function TodoPage() {
                         </div>
 
                         {/* Subtasks + date grid */}
-                        <div className="overflow-x-auto">
+                        <div
+                          ref={(el) => registerTableRef(task.id, el)}
+                          onScroll={(e) => syncScroll((e.target as HTMLDivElement).scrollLeft, e.target as HTMLDivElement)}
+                          className="overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                        >
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border">
                                 <th className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground min-w-[180px]">Sous-tâche</th>
                                 {dates.map((d) => (
-                                  <th key={d} className="px-1 py-1 text-center font-medium text-muted-foreground whitespace-nowrap min-w-[40px]">{formatShortDate(d)}</th>
+                                  <th
+                                    key={d}
+                                    className={cn(
+                                      "px-1 py-1 text-center font-medium whitespace-nowrap min-w-[40px]",
+                                      d === today ? "text-primary bg-primary/10" : "text-muted-foreground"
+                                    )}
+                                  >
+                                    {formatShortDate(d)}
+                                  </th>
                                 ))}
                               </tr>
                             </thead>
@@ -598,7 +610,7 @@ export default function TodoPage() {
                                   {dates.map((d) => {
                                     const score = st.scores[d] ?? 0;
                                     return (
-                                      <td key={d} className="px-1 py-1 text-center">
+                                      <td key={d} className={cn("px-1 py-1 text-center", d === today && "bg-primary/5")}>
                                         <button
                                           onClick={() => cycleScore(task.id, st.id, d)}
                                           className={cn("w-7 h-7 rounded text-xs font-semibold transition-colors",
