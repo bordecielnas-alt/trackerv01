@@ -546,12 +546,15 @@ export default function TodoPage() {
                         {/* Subtasks + date grid */}
                         <div className="overflow-x-auto">
 
-                          <table className="w-full text-xs">
+                          <table
+                            className="text-xs table-fixed"
+                            style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH }}
+                          >
                             <thead>
                               <tr className="border-b border-border">
                                 <th
                                   className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground"
-                                  style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                                  style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }}
                                 >Sous-tâche</th>
                                 {dates.map((d) => (
                                   <th
