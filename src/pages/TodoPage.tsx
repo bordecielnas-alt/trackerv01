@@ -367,18 +367,13 @@ export default function TodoPage() {
   };
 
   // --- Chart data: grouped by task ---
-  // The chart uses the SAME visible date window as the task tables, so columns stay aligned.
-  const chartTasks = tasks.filter((t) => t.zone !== "done");
+  // Show only persistent + inprogress tasks (in that order). Keep ALL subtasks
+  // in their user-defined order, even those with no scores in the visible window.
+  const CHART_ZONE_ORDER: Task["zone"][] = ["persistent", "inprogress"];
+  const chartTasks = CHART_ZONE_ORDER.flatMap((z) => tasks.filter((t) => t.zone === z));
   const chartGroups: { taskName: string; taskColor: string; subtasks: { subName: string; scores: Record<string, number> }[] }[] = [];
   for (const t of chartTasks) {
-    const subs: { subName: string; scores: Record<string, number> }[] = [];
-    for (const st of t.subtasks) {
-      // Keep sub if it has any score in the visible window (so chart reflects window navigation)
-      const hasScoresInWindow = dates.some((d) => (st.scores[d] ?? 0) > 0);
-      if (hasScoresInWindow) {
-        subs.push({ subName: st.name, scores: st.scores });
-      }
-    }
+    const subs = t.subtasks.map((st) => ({ subName: st.name, scores: st.scores }));
     if (subs.length > 0) chartGroups.push({ taskName: t.name, taskColor: t.color || "#6366f1", subtasks: subs });
   }
   const chartDates = dates;
@@ -554,14 +549,18 @@ export default function TodoPage() {
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border">
-                                <th className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground min-w-[180px]">Sous-tâche</th>
+                                <th
+                                  className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground"
+                                  style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                                >Sous-tâche</th>
                                 {dates.map((d) => (
                                   <th
                                     key={d}
                                     className={cn(
-                                      "px-1 py-1 text-center font-medium whitespace-nowrap min-w-[40px]",
+                                      "py-1 text-center font-medium whitespace-nowrap",
                                       d === today ? "text-primary bg-primary/10" : "text-muted-foreground"
                                     )}
+                                    style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
                                   >
                                     {formatShortDate(d)}
                                   </th>
@@ -600,7 +599,11 @@ export default function TodoPage() {
                                   {dates.map((d) => {
                                     const score = st.scores[d] ?? 0;
                                     return (
-                                      <td key={d} className={cn("px-1 py-1 text-center", d === today && "bg-primary/5")}>
+                                      <td
+                                        key={d}
+                                        className={cn("py-1 text-center", d === today && "bg-primary/5")}
+                                        style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
+                                      >
                                         <button
                                           onClick={() => cycleScore(task.id, st.id, d)}
                                           className={cn("w-7 h-7 rounded text-xs font-semibold transition-colors",
@@ -641,86 +644,88 @@ export default function TodoPage() {
             <span className="ml-2 text-xs font-normal text-muted-foreground normal-case">— {rangeLabel}</span>
           </h2>
           <div className="overflow-x-auto">
-            <div className="inline-block min-w-full">
+            <div className="inline-block" style={{ minWidth: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }}>
+              {/* Header row: empty label + date columns */}
               <div className="flex">
-                {/* Y-axis labels — width matches the sticky "Sous-tâche" column above */}
-                <div className="flex flex-col pr-2 pt-6 shrink-0" style={{ width: STICKY_COL_WIDTH }}>
-                  {chartGroups.map((group, gIdx) => (
-                    <Fragment key={group.taskName + gIdx}>
-                      <div className="h-6 flex items-center text-xs font-bold truncate" style={{ color: group.taskColor }}>
-                        {group.taskName}
-                      </div>
-                      {group.subtasks.map((sub) => (
-                        <div key={sub.subName} className="h-8 flex items-center text-xs text-muted-foreground truncate pl-3">
-                          {sub.subName}
-                        </div>
-                      ))}
-                      {gIdx < chartGroups.length - 1 && <div className="h-px bg-border w-full" />}
-                    </Fragment>
-                  ))}
-                </div>
-                {/* Chart grid — column width matches the table date columns (COL_WIDTH) */}
-                <div className="flex-1">
+                <div className="shrink-0" style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }} />
+                {chartDates.map((d) => (
+                  <div
+                    key={d}
+                    className={cn(
+                      "text-center text-[10px] shrink-0 whitespace-nowrap",
+                      d === today ? "text-primary font-semibold bg-primary/10" : "text-muted-foreground"
+                    )}
+                    style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
+                  >
+                    {formatShortDate(d)}
+                  </div>
+                ))}
+              </div>
+
+              {chartGroups.map((group, gIdx) => (
+                <Fragment key={group.taskName + gIdx}>
+                  {/* Task title row — label aligned, empty grid */}
                   <div className="flex">
+                    <div
+                      className="shrink-0 h-6 flex items-center text-xs font-bold truncate"
+                      style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, color: group.taskColor }}
+                    >
+                      {group.taskName}
+                    </div>
                     {chartDates.map((d) => (
                       <div
                         key={d}
-                        className={cn(
-                          "text-center text-[10px] shrink-0 px-1 whitespace-nowrap",
-                          d === today ? "text-primary font-semibold" : "text-muted-foreground"
-                        )}
-                        style={{ width: COL_WIDTH }}
-                      >
-                        {formatShortDate(d)}
-                      </div>
+                        className={cn("h-6 shrink-0", d === today && "bg-primary/5")}
+                        style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
+                      />
                     ))}
                   </div>
-                  {chartGroups.map((group, gIdx) => (
-                    <Fragment key={group.taskName + gIdx}>
-                      <div className="flex h-6 items-center" />
-                      {group.subtasks.map((sub) => (
-                        <div key={sub.subName} className="flex h-8 items-end">
-                          {chartDates.map((date, dIdx) => {
-                            const score = sub.scores[date] ?? 0;
-                            const maxH = 28;
-                            const barH = score === 0 ? 0 : Math.round((score / 3) * maxH);
-                            // Check neighbors for contiguous rendering
-                            const prevDate = dIdx > 0 ? chartDates[dIdx - 1] : null;
-                            const nextDate = dIdx < chartDates.length - 1 ? chartDates[dIdx + 1] : null;
-                            const prevScore = prevDate ? (sub.scores[prevDate] ?? 0) : 0;
-                            const nextScore = nextDate ? (sub.scores[nextDate] ?? 0) : 0;
-                            const hasLeft = prevScore > 0 && score > 0;
-                            const hasRight = nextScore > 0 && score > 0;
-                            const borderRadius = `${hasLeft ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasLeft ? 0 : 3}px`;
-                            return (
+
+                  {/* One row per subtask */}
+                  {group.subtasks.map((sub) => (
+                    <div key={sub.subName} className="flex">
+                      <div
+                        className="shrink-0 h-8 flex items-center text-xs text-muted-foreground truncate pl-3"
+                        style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                      >
+                        {sub.subName}
+                      </div>
+                      {chartDates.map((date, dIdx) => {
+                        const score = sub.scores[date] ?? 0;
+                        const maxH = 28;
+                        const barH = score === 0 ? 0 : Math.round((score / 3) * maxH);
+                        const prevDate = dIdx > 0 ? chartDates[dIdx - 1] : null;
+                        const nextDate = dIdx < chartDates.length - 1 ? chartDates[dIdx + 1] : null;
+                        const prevScore = prevDate ? (sub.scores[prevDate] ?? 0) : 0;
+                        const nextScore = nextDate ? (sub.scores[nextDate] ?? 0) : 0;
+                        const hasLeft = prevScore > 0 && score > 0;
+                        const hasRight = nextScore > 0 && score > 0;
+                        const borderRadius = `${hasLeft ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasRight ? 0 : 3}px ${hasLeft ? 0 : 3}px`;
+                        return (
+                          <div
+                            key={date}
+                            className={cn("flex items-end justify-center shrink-0 h-8", date === today && "bg-primary/5")}
+                            style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
+                          >
+                            {score > 0 && (
                               <div
-                                key={date}
-                                className={cn("flex items-end justify-center shrink-0", date === today && "bg-primary/5")}
-                                style={{ height: maxH, width: COL_WIDTH }}
-                              >
-                                {score > 0 && (
-                                  <div
-                                    className="w-full"
-                                    style={{ height: barH, backgroundColor: group.taskColor, opacity: 0.85, borderRadius }}
-                                    title={`${group.taskName} / ${sub.subName} — ${formatShortDate(date)}: ${score}`}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                      {gIdx < chartGroups.length - 1 && (
-                        <div className="flex h-px">
-                          {chartDates.map((d) => (
-                            <div key={d} className="shrink-0" style={{ width: COL_WIDTH }}><div className="h-px bg-border w-full" /></div>
-                          ))}
-                        </div>
-                      )}
-                    </Fragment>
+                                className="w-full"
+                                style={{ height: barH, backgroundColor: group.taskColor, opacity: 0.85, borderRadius }}
+                                title={`${group.taskName} / ${sub.subName} — ${formatShortDate(date)}: ${score}`}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ))}
-                </div>
-              </div>
+
+                  {/* Continuous separator across full width */}
+                  {gIdx < chartGroups.length - 1 && (
+                    <div className="h-px bg-border" style={{ width: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }} />
+                  )}
+                </Fragment>
+              ))}
             </div>
           </div>
         </div>

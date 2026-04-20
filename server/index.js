@@ -23,6 +23,7 @@ const FILES = {
   preferences: path.join(DATA_DIR, "preferences.json"),
   todo: path.join(DATA_DIR, "todo.json"),
   habits: path.join(DATA_DIR, "habits.json"),
+  theme: path.join(DATA_DIR, "theme.json"),
 };
 
 function readJSON(filePath, fallback) {
@@ -122,6 +123,16 @@ app.get("/api/habits", (_req, res) => {
 
 app.put("/api/habits", (req, res) => {
   writeJSON(FILES.habits, req.body);
+  res.json({ ok: true });
+});
+
+// --- Theme ---
+app.get("/api/theme", (_req, res) => {
+  res.json(readJSON(FILES.theme, null));
+});
+
+app.put("/api/theme", (req, res) => {
+  writeJSON(FILES.theme, req.body);
   res.json({ ok: true });
 });
 
