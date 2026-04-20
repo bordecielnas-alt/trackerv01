@@ -599,7 +599,11 @@ export default function TodoPage() {
                                   {dates.map((d) => {
                                     const score = st.scores[d] ?? 0;
                                     return (
-                                      <td key={d} className={cn("px-1 py-1 text-center", d === today && "bg-primary/5")}>
+                                      <td
+                                        key={d}
+                                        className={cn("py-1 text-center", d === today && "bg-primary/5")}
+                                        style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
+                                      >
                                         <button
                                           onClick={() => cycleScore(task.id, st.id, d)}
                                           className={cn("w-7 h-7 rounded text-xs font-semibold transition-colors",
