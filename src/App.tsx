@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isAuthenticated } from "@/lib/auth-store";
+import { useThemeBootstrap } from "@/lib/theme-store";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import TrackingPage from "@/pages/TrackingPage";
@@ -20,6 +21,7 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => {
+  useThemeBootstrap();
   const [authed, setAuthed] = useState(isAuthenticated());
 
   if (!authed) {
