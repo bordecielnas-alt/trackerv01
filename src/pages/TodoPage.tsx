@@ -581,7 +581,10 @@ export default function TodoPage() {
                                   onDrop={(e) => { e.stopPropagation(); handleSubDrop(task.id); }}
                                   onDragEnd={() => { setDragSubId(null); setDragOverSubIdx(null); }}
                                 >
-                                  <td className="sticky left-0 bg-card z-10 px-2 py-1">
+                                  <td
+                                    className="sticky left-0 bg-card z-10 px-2 py-1"
+                                    style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }}
+                                  >
                                     <div className="flex items-center gap-1">
                                       <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab shrink-0" />
                                       {editingSubtask === st.id ? (
