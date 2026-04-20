@@ -546,12 +546,15 @@ export default function TodoPage() {
                         {/* Subtasks + date grid */}
                         <div className="overflow-x-auto">
 
-                          <table className="w-full text-xs">
+                          <table
+                            className="text-xs table-fixed"
+                            style={{ width: STICKY_COL_WIDTH + dates.length * COL_WIDTH }}
+                          >
                             <thead>
                               <tr className="border-b border-border">
                                 <th
                                   className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground"
-                                  style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                                  style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }}
                                 >Sous-tâche</th>
                                 {dates.map((d) => (
                                   <th
@@ -578,7 +581,10 @@ export default function TodoPage() {
                                   onDrop={(e) => { e.stopPropagation(); handleSubDrop(task.id); }}
                                   onDragEnd={() => { setDragSubId(null); setDragOverSubIdx(null); }}
                                 >
-                                  <td className="sticky left-0 bg-card z-10 px-2 py-1">
+                                  <td
+                                    className="sticky left-0 bg-card z-10 px-2 py-1"
+                                    style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }}
+                                  >
                                     <div className="flex items-center gap-1">
                                       <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab shrink-0" />
                                       {editingSubtask === st.id ? (
@@ -644,10 +650,10 @@ export default function TodoPage() {
             <span className="ml-2 text-xs font-normal text-muted-foreground normal-case">— {rangeLabel}</span>
           </h2>
           <div className="overflow-x-auto">
-            <div className="inline-block" style={{ minWidth: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }}>
+            <div className="inline-block" style={{ width: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }}>
               {/* Header row: empty label + date columns */}
               <div className="flex">
-                <div className="shrink-0" style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }} />
+                <div className="shrink-0" style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }} />
                 {chartDates.map((d) => (
                   <div
                     key={d}
@@ -667,8 +673,8 @@ export default function TodoPage() {
                   {/* Task title row — label aligned, empty grid */}
                   <div className="flex">
                     <div
-                      className="shrink-0 h-6 flex items-center text-xs font-bold truncate"
-                      style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, color: group.taskColor }}
+                      className="shrink-0 h-6 px-2 flex items-center text-xs font-bold truncate"
+                      style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH, color: group.taskColor }}
                     >
                       {group.taskName}
                     </div>
@@ -685,10 +691,10 @@ export default function TodoPage() {
                   {group.subtasks.map((sub) => (
                     <div key={sub.subName} className="flex">
                       <div
-                        className="shrink-0 h-8 flex items-center text-xs text-muted-foreground truncate pl-3"
-                        style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                        className="shrink-0 h-8 px-2 py-1 flex items-center text-xs text-muted-foreground"
+                        style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }}
                       >
-                        {sub.subName}
+                        <span className="truncate pl-4">{sub.subName}</span>
                       </div>
                       {chartDates.map((date, dIdx) => {
                         const score = sub.scores[date] ?? 0;
