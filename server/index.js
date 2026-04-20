@@ -126,6 +126,16 @@ app.put("/api/habits", (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Theme ---
+app.get("/api/theme", (_req, res) => {
+  res.json(readJSON(FILES.theme, null));
+});
+
+app.put("/api/theme", (req, res) => {
+  writeJSON(FILES.theme, req.body);
+  res.json({ ok: true });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Tracker backend listening on port ${PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
