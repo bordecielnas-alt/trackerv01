@@ -367,18 +367,13 @@ export default function TodoPage() {
   };
 
   // --- Chart data: grouped by task ---
-  // The chart uses the SAME visible date window as the task tables, so columns stay aligned.
-  const chartTasks = tasks.filter((t) => t.zone !== "done");
+  // Show only persistent + inprogress tasks (in that order). Keep ALL subtasks
+  // in their user-defined order, even those with no scores in the visible window.
+  const CHART_ZONE_ORDER: Task["zone"][] = ["persistent", "inprogress"];
+  const chartTasks = CHART_ZONE_ORDER.flatMap((z) => tasks.filter((t) => t.zone === z));
   const chartGroups: { taskName: string; taskColor: string; subtasks: { subName: string; scores: Record<string, number> }[] }[] = [];
   for (const t of chartTasks) {
-    const subs: { subName: string; scores: Record<string, number> }[] = [];
-    for (const st of t.subtasks) {
-      // Keep sub if it has any score in the visible window (so chart reflects window navigation)
-      const hasScoresInWindow = dates.some((d) => (st.scores[d] ?? 0) > 0);
-      if (hasScoresInWindow) {
-        subs.push({ subName: st.name, scores: st.scores });
-      }
-    }
+    const subs = t.subtasks.map((st) => ({ subName: st.name, scores: st.scores }));
     if (subs.length > 0) chartGroups.push({ taskName: t.name, taskColor: t.color || "#6366f1", subtasks: subs });
   }
   const chartDates = dates;
@@ -554,14 +549,18 @@ export default function TodoPage() {
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border">
-                                <th className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground min-w-[180px]">Sous-tâche</th>
+                                <th
+                                  className="sticky left-0 bg-card z-10 px-2 py-1 text-left font-medium text-muted-foreground"
+                                  style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                                >Sous-tâche</th>
                                 {dates.map((d) => (
                                   <th
                                     key={d}
                                     className={cn(
-                                      "px-1 py-1 text-center font-medium whitespace-nowrap min-w-[40px]",
+                                      "py-1 text-center font-medium whitespace-nowrap",
                                       d === today ? "text-primary bg-primary/10" : "text-muted-foreground"
                                     )}
+                                    style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
                                   >
                                     {formatShortDate(d)}
                                   </th>
