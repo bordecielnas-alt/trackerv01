@@ -673,8 +673,8 @@ export default function TodoPage() {
                   {/* Task title row — label aligned, empty grid */}
                   <div className="flex">
                     <div
-                      className="shrink-0 h-6 flex items-center text-xs font-bold truncate"
-                      style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, color: group.taskColor }}
+                      className="shrink-0 h-6 px-2 flex items-center text-xs font-bold truncate"
+                      style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH, color: group.taskColor }}
                     >
                       {group.taskName}
                     </div>
