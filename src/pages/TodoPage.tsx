@@ -650,10 +650,10 @@ export default function TodoPage() {
             <span className="ml-2 text-xs font-normal text-muted-foreground normal-case">— {rangeLabel}</span>
           </h2>
           <div className="overflow-x-auto">
-            <div className="inline-block" style={{ minWidth: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }}>
+            <div className="inline-block" style={{ width: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }}>
               {/* Header row: empty label + date columns */}
               <div className="flex">
-                <div className="shrink-0" style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }} />
+                <div className="shrink-0" style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }} />
                 {chartDates.map((d) => (
                   <div
                     key={d}
