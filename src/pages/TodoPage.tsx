@@ -691,10 +691,10 @@ export default function TodoPage() {
                   {group.subtasks.map((sub) => (
                     <div key={sub.subName} className="flex">
                       <div
-                        className="shrink-0 h-8 flex items-center text-xs text-muted-foreground truncate pl-3"
-                        style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH }}
+                        className="shrink-0 h-8 px-2 py-1 flex items-center text-xs text-muted-foreground"
+                        style={{ width: STICKY_COL_WIDTH, minWidth: STICKY_COL_WIDTH, maxWidth: STICKY_COL_WIDTH }}
                       >
-                        {sub.subName}
+                        <span className="truncate pl-4">{sub.subName}</span>
                       </div>
                       {chartDates.map((date, dIdx) => {
                         const score = sub.scores[date] ?? 0;
