@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Check, RotateCcw } from "lucide-react";
+import { Check, RotateCcw, Plug } from "lucide-react";
 import { updateCredentials, getCurrentUsername } from "@/lib/auth-store";
 import { THEME_PALETTE, useTheme } from "@/lib/theme-store";
+import { loadCaldavConfig, saveCaldavConfig, testCaldav } from "@/lib/caldav-store";
 import { cn } from "@/lib/utils";
 
 export default function AdminPage() {
@@ -16,8 +17,13 @@ export default function AdminPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const { themeId, setTheme, resetTheme } = useTheme();
 
+  // CalDAV
+  const [caldav, setCaldav] = useState({ url: "", username: "", calendarName: "", password: "", hasPassword: false });
+  const [testing, setTesting] = useState(false);
+
   useEffect(() => {
     getCurrentUsername().then(setNewUsername);
+    loadCaldavConfig().then((c) => setCaldav({ ...c, password: "" }));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
