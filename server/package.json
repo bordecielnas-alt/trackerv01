@@ -7,6 +7,8 @@
   },
   "dependencies": {
     "express": "^4.21.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "tsdav": "^2.1.5",
+    "ical.js": "^2.1.0"
   }
 }

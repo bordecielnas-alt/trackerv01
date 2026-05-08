@@ -3,6 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
 
+let tsdav, ICAL;
+try { tsdav = require("tsdav"); } catch (e) { console.warn("tsdav not available:", e.message); }
+try { ICAL = require("ical.js"); } catch (e) { console.warn("ical.js not available:", e.message); }
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = process.env.DATA_DIR || "/data";
@@ -24,6 +28,8 @@ const FILES = {
   todo: path.join(DATA_DIR, "todo.json"),
   habits: path.join(DATA_DIR, "habits.json"),
   theme: path.join(DATA_DIR, "theme.json"),
+  inspiration: path.join(DATA_DIR, "inspiration.json"),
+  caldav: path.join(DATA_DIR, "caldav.json"),
 };
 
 function readJSON(filePath, fallback) {
@@ -134,6 +140,132 @@ app.get("/api/theme", (_req, res) => {
 app.put("/api/theme", (req, res) => {
   writeJSON(FILES.theme, req.body);
   res.json({ ok: true });
+});
+
+// --- Inspiration ---
+app.get("/api/inspiration", (_req, res) => {
+  res.json(readJSON(FILES.inspiration, { html: "", updatedAt: null }));
+});
+app.put("/api/inspiration", (req, res) => {
+  writeJSON(FILES.inspiration, { ...req.body, updatedAt: new Date().toISOString() });
+  res.json({ ok: true });
+});
+
+// --- CalDAV config ---
+const caldavCache = new Map();
+function getCaldavConfig() {
+  return readJSON(FILES.caldav, { url: "", username: "", password: "", calendarName: "" });
+}
+app.get("/api/caldav-config", (_req, res) => {
+  const c = getCaldavConfig();
+  res.json({ url: c.url || "", username: c.username || "", calendarName: c.calendarName || "", hasPassword: !!c.password });
+});
+app.put("/api/caldav-config", (req, res) => {
+  const existing = getCaldavConfig();
+  const { url, username, password, calendarName } = req.body || {};
+  const next = {
+    url: url ?? existing.url,
+    username: username ?? existing.username,
+    calendarName: calendarName ?? existing.calendarName,
+    password: (password && password.length > 0) ? password : existing.password,
+  };
+  writeJSON(FILES.caldav, next);
+  caldavCache.clear();
+  res.json({ ok: true });
+});
+
+// --- CalDAV proxy ---
+// caldavCache declared above
+const CACHE_TTL = 60 * 1000;
+
+async function fetchCaldavEvents(from, to) {
+  if (!tsdav || !ICAL) throw new Error("CalDAV libraries not installed");
+  const cfg = getCaldavConfig();
+  if (!cfg.url || !cfg.username || !cfg.password) throw new Error("CalDAV non configuré");
+
+  const client = new tsdav.DAVClient({
+    serverUrl: cfg.url,
+    credentials: { username: cfg.username, password: cfg.password },
+    authMethod: "Basic",
+    defaultAccountType: "caldav",
+  });
+  await client.login();
+  let calendars = await client.fetchCalendars();
+  if (cfg.calendarName) {
+    const filtered = calendars.filter((c) => (c.displayName || "").toLowerCase().includes(cfg.calendarName.toLowerCase()));
+    if (filtered.length) calendars = filtered;
+  }
+  const events = [];
+  for (const cal of calendars) {
+    let objects;
+    try {
+      objects = await client.fetchCalendarObjects({
+        calendar: cal,
+        timeRange: { start: new Date(from).toISOString(), end: new Date(to).toISOString() },
+      });
+    } catch (e) {
+      objects = await client.fetchCalendarObjects({ calendar: cal });
+    }
+    for (const obj of objects) {
+      try {
+        const jcal = ICAL.parse(obj.data);
+        const comp = new ICAL.Component(jcal);
+        const vevents = comp.getAllSubcomponents("vevent");
+        for (const ve of vevents) {
+          const ev = new ICAL.Event(ve);
+          const start = ev.startDate.toJSDate();
+          const end = ev.endDate ? ev.endDate.toJSDate() : start;
+          // basic window filter
+          if (end < new Date(from) || start > new Date(to)) continue;
+          events.push({
+            uid: ev.uid,
+            title: ev.summary || "(sans titre)",
+            start: start.toISOString(),
+            end: end.toISOString(),
+            allDay: ev.startDate.isDate,
+            location: ev.location || "",
+            description: ev.description || "",
+          });
+        }
+      } catch (e) { /* skip malformed */ }
+    }
+  }
+  return events;
+}
+
+app.get("/api/caldav/events", async (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: "from/to required" });
+  const key = `${from}|${to}`;
+  const cached = caldavCache.get(key);
+  if (cached && (Date.now() - cached.ts) < CACHE_TTL) return res.json(cached.data);
+  try {
+    const events = await fetchCaldavEvents(from, to);
+    caldavCache.set(key, { ts: Date.now(), data: events });
+    res.json(events);
+  } catch (e) {
+    console.error("CalDAV events error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/caldav/test", async (_req, res) => {
+  if (!tsdav) return res.status(500).json({ ok: false, error: "tsdav non installé" });
+  const cfg = getCaldavConfig();
+  if (!cfg.url || !cfg.username || !cfg.password) return res.status(400).json({ ok: false, error: "Config incomplète" });
+  try {
+    const client = new tsdav.DAVClient({
+      serverUrl: cfg.url,
+      credentials: { username: cfg.username, password: cfg.password },
+      authMethod: "Basic",
+      defaultAccountType: "caldav",
+    });
+    await client.login();
+    const cals = await client.fetchCalendars();
+    res.json({ ok: true, calendars: cals.map((c) => c.displayName || c.url) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.listen(PORT, "0.0.0.0", () => {
