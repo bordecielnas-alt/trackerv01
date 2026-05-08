@@ -89,7 +89,48 @@ export default function AdminPage() {
         </CardContent>
       </Card>
 
-      {/* Identifiants */}
+      {/* CalDAV */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Calendrier (CalDAV)</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>URL du serveur CalDAV</Label>
+            <Input value={caldav.url} onChange={(e) => setCaldav({ ...caldav, url: e.target.value })} placeholder="https://exemple.com/remote.php/dav/" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Identifiant</Label>
+              <Input value={caldav.username} onChange={(e) => setCaldav({ ...caldav, username: e.target.value })} autoComplete="off" />
+            </div>
+            <div className="space-y-2">
+              <Label>Mot de passe {caldav.hasPassword && <span className="text-xs text-muted-foreground">(défini)</span>}</Label>
+              <Input type="password" value={caldav.password} onChange={(e) => setCaldav({ ...caldav, password: e.target.value })} placeholder={caldav.hasPassword ? "••••••••" : ""} autoComplete="new-password" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Nom du calendrier (filtre, optionnel)</Label>
+            <Input value={caldav.calendarName} onChange={(e) => setCaldav({ ...caldav, calendarName: e.target.value })} placeholder="Personnel" />
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" onClick={async () => {
+              await saveCaldavConfig({ url: caldav.url, username: caldav.username, calendarName: caldav.calendarName, password: caldav.password || undefined });
+              const c = await loadCaldavConfig();
+              setCaldav({ ...c, password: "" });
+              toast.success("Configuration CalDAV enregistrée");
+            }}>Enregistrer</Button>
+            <Button type="button" variant="outline" disabled={testing} onClick={async () => {
+              setTesting(true);
+              const r = await testCaldav();
+              setTesting(false);
+              if (r.ok) toast.success(`Connexion OK • ${r.calendars?.length || 0} calendrier(s)`);
+              else toast.error(r.error || "Échec de connexion");
+            }} className="gap-1.5">
+              <Plug className="h-3.5 w-3.5" /> {testing ? "Test…" : "Tester la connexion"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Modifier les identifiants</CardTitle>
