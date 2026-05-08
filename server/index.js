@@ -152,6 +152,7 @@ app.put("/api/inspiration", (req, res) => {
 });
 
 // --- CalDAV config ---
+const caldavCache = new Map();
 function getCaldavConfig() {
   return readJSON(FILES.caldav, { url: "", username: "", password: "", calendarName: "" });
 }
@@ -174,7 +175,7 @@ app.put("/api/caldav-config", (req, res) => {
 });
 
 // --- CalDAV proxy ---
-const caldavCache = new Map(); // key: from|to -> {ts, data}
+// caldavCache declared above
 const CACHE_TTL = 60 * 1000;
 
 async function fetchCaldavEvents(from, to) {
