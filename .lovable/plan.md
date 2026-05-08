@@ -1,63 +1,87 @@
-
 ## Objectif
 
-Corriger définitivement le décalage entre le tableau des tâches et le graphique dans l’onglet To Do en imposant :
-- une largeur de dates strictement identique partout
-- une largeur strictement identique pour la colonne titre tâche / sous-tâche
-- une structure de rendu identique entre tableau et graphique
+Ajouter deux nouveaux onglets à l'application Tracker :
+1. **Inspiration** : un éditeur de texte riche complet (un seul grand document persistant)
+2. **Calendrier** : affichage en lecture seule d'un agenda CalDAV configuré dans l'onglet Admin, avec basculement Mois/Semaine/Jour
 
-## Constat actuel
+## 1. Onglet Inspiration
 
-Le décalage visible vient encore de plusieurs détails dans `src/pages/TodoPage.tsx` :
-- le tableau utilise encore `table className="w-full"` : il peut répartir l’espace différemment malgré les largeurs définies
-- certaines cellules sticky n’appliquent pas toutes la même largeur fixe
-- le graphique ajoute un retrait visuel sur les sous-tâches (`pl-3`) qui ne correspond pas exactement au tableau
-- le graphique et le tableau n’utilisent pas encore une structure strictement homogène sur la colonne de gauche
+### UI / Édition
+- Page plein écran avec un éditeur de texte riche basé sur **Tiptap** (`@tiptap/react`, `@tiptap/starter-kit` + extensions).
+- Extensions activées : titres (H1–H3), gras/italique/souligné/barré, listes à puces / numérotées / cases à cocher, citation, code/bloc de code, liens cliquables (ouverture nouvel onglet), images (insertion par URL), tableaux, alignement, couleur de texte et surlignage.
+- Barre d'outils sticky en haut avec boutons groupés par catégorie.
+- Sauvegarde automatique avec debounce (~800 ms) et indicateur "Enregistré / Modification…".
 
-## Modifications prévues
+### Persistance
+- Nouveau endpoint serveur `/api/inspiration` (GET/PUT) dans `server/index.js`, fichier `inspiration.json` dans `/data` contenant `{ html: string, updatedAt: string }`.
+- Côté client : helper `inspiration-store.ts` utilisant `apiGet` / `apiPut` (avec fallback localStorage existant).
 
-### 1. Verrouiller les largeurs du tableau
-Dans le tableau des sous-tâches :
-- retirer `w-full`
-- passer le `<table>` sur une largeur calculée fixe :
-  - `width = STICKY_COL_WIDTH + dates.length * COL_WIDTH`
-- conserver `table-fixed` pour empêcher toute redistribution automatique
+### Navigation
+- Ajouter l'entrée dans `AppLayout.tsx` : icône `Lightbulb`, route `/inspiration`.
+- Position dans la sidebar : après "Habitudes", avant "Réglages".
 
-### 2. Forcer exactement la même largeur sur la colonne gauche
-Appliquer `width`, `minWidth` et `maxWidth` avec `STICKY_COL_WIDTH` sur :
-- le `<th>` "Sous-tâche"
-- chaque `<td>` sticky des sous-tâches
-- les lignes de libellés du graphique
-- les lignes de titre de tâche dans le graphique
+## 2. Onglet Calendrier
 
-But : la colonne gauche doit avoir exactement la même largeur dans les 2 blocs.
+### Configuration (Admin)
+- Nouvelle section "Calendrier (CalDAV)" dans `AdminPage.tsx` avec champs :
+  - URL CalDAV
+  - Identifiant
+  - Mot de passe
+  - Nom du calendrier (optionnel, pour filtrage)
+  - Bouton "Tester la connexion"
+- Persistance via nouveau endpoint `/api/caldav-config` (GET/PUT), fichier `caldav.json` dans `/data`.
+- Le mot de passe est stocké côté serveur uniquement et **jamais renvoyé en clair** au client (le GET renvoie un placeholder masqué + booléen `hasPassword`).
 
-### 3. Forcer exactement la même largeur sur toutes les colonnes de dates
-Appliquer `width`, `minWidth` et `maxWidth` avec `COL_WIDTH` sur :
-- tous les `<th>` de dates du tableau
-- tous les `<td>` de dates du tableau
-- tous les en-têtes de dates du graphique
-- toutes les cellules du graphique
+### Backend proxy CalDAV
+- Nouvelles routes dans `server/index.js` :
+  - `POST /api/caldav/test` → tente une connexion et renvoie OK/erreur
+  - `GET /api/caldav/events?from=YYYY-MM-DD&to=YYYY-MM-DD` → renvoie la liste d'évènements normalisés `{ uid, title, start, end, allDay, location, description }`
+- Utilisation de la librairie **`tsdav`** (client CalDAV moderne) côté Node + **`ical.js`** pour parser les VEVENT.
+- Cache mémoire simple (TTL 60 s) pour éviter de retaper le serveur CalDAV à chaque navigation.
 
-But : chaque date occupe exactement la même largeur dans les 2 vues.
+### UI Calendrier
+- Page `CalendarPage.tsx` avec :
+  - En-tête : titre du mois/semaine/jour courant, flèches précédent/suivant, bouton "Aujourd'hui", toggle de vue (Mois / Semaine / Jour).
+  - Vue **Mois** : grille 7×6 classique, pastilles d'évènements (max 3 visibles + "X autres"), clic sur une case = ouvre la vue jour.
+  - Vue **Semaine** : 7 colonnes, créneaux horaires 0–24 h, blocs d'évènements positionnés.
+  - Vue **Jour** : 1 colonne, créneaux horaires détaillés.
+  - Clic sur un évènement → popover avec titre, horaire, lieu, description.
+- Charge les évènements de la fenêtre visible via React Query (`useQuery` avec clé `[from, to]`).
+- Si aucune config CalDAV : message d'invitation à configurer dans Admin avec bouton vers `/admin`.
 
-### 4. Harmoniser le contenu interne de la colonne gauche
-Supprimer les différences internes qui créent une impression de décalage :
-- remplacer le `pl-3` du graphique par une structure interne similaire au tableau
-- utiliser un wrapper interne commun pour les labels de tâche et sous-tâche
-- garder l’indentation visuelle via un wrapper enfant, sans modifier la largeur réelle de la cellule
+### Navigation
+- Entrée dans `AppLayout.tsx` : icône `CalendarRange`, route `/calendar`.
+- Position : après "Routine", avant "To Do".
 
-### 5. Vérifier la barre de séparation
-La barre entre les tâches sera laissée en pleine largeur calculée à partir des mêmes constantes :
-- `STICKY_COL_WIDTH + dates.length * COL_WIDTH`
-- positionnée dans la même logique de grille que le reste
+## 3. Routes & App.tsx
+- Ajouter dans `App.tsx` :
+  - `<Route path="/inspiration" element={<InspirationPage />} />`
+  - `<Route path="/calendar" element={<CalendarPage />} />`
 
-## Fichier concerné
+## 4. Dépendances à installer
+- Frontend : `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-table`, `@tiptap/extension-table-row`, `@tiptap/extension-table-cell`, `@tiptap/extension-table-header`, `@tiptap/extension-text-style`, `@tiptap/extension-color`, `@tiptap/extension-highlight`, `@tiptap/extension-underline`, `@tiptap/extension-task-list`, `@tiptap/extension-task-item`, `@tiptap/extension-text-align`.
+- Backend : `tsdav`, `ical.js`.
 
-- `src/pages/TodoPage.tsx`
+## 5. Fichiers concernés
 
-## Résultat attendu
+**Créés**
+- `src/pages/InspirationPage.tsx`
+- `src/pages/CalendarPage.tsx`
+- `src/components/inspiration/RichEditor.tsx` (Tiptap + toolbar)
+- `src/components/calendar/MonthView.tsx`, `WeekView.tsx`, `DayView.tsx`, `EventPopover.tsx`
+- `src/lib/inspiration-store.ts`
+- `src/lib/caldav-store.ts`
 
-- les colonnes de dates du graphique tombent exactement sous les mêmes dates du tableau
-- la colonne "titre tâche / sous-tâche" du graphique a exactement la même largeur que la colonne sticky du tableau
-- plus aucun décalage visuel entre intitulés, séparateurs et valeurs
+**Modifiés**
+- `server/index.js` : endpoints inspiration, caldav-config, caldav/test, caldav/events
+- `server/package.json` : ajout `tsdav`, `ical.js`
+- `src/App.tsx` : routes
+- `src/components/AppLayout.tsx` : navItems
+- `src/pages/AdminPage.tsx` : section CalDAV
+
+## Notes
+
+- Mémoire mise à jour avec deux nouvelles entrées : `features/inspiration` et `features/calendrier`, plus mise à jour de `style/navigation-layout` pour refléter le nouvel ordre.
+- Aucune modification du système de thème, scoring ou tâches existantes.
+- Le calendrier reste **lecture seule** ; toute édition future serait un autre lot.
+- Les identifiants CalDAV ne transitent qu'au moment du PUT et restent côté serveur.
