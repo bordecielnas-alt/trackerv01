@@ -312,6 +312,8 @@ export default function TodoPage() {
     const newTasks = [...tasks];
     const [moved] = newTasks.splice(taskIdx, 1);
     moved.zone = zone;
+    if (zone === "planned") setHidePlanned(false);
+    if (zone === "done") setHideDone(false);
     // Find insert position among zone tasks
     const zoneTasks = newTasks.filter((t) => t.zone === zone);
     const insertAfterIdx = dragOverIdx !== null && dragOverIdx < zoneTasks.length
@@ -519,7 +521,7 @@ export default function TodoPage() {
                         </Button>
                         <select
                           value={task.zone}
-                          onChange={(e) => updateTask(task.id, { zone: e.target.value as Task["zone"] })}
+                          onChange={(e) => { const z = e.target.value as Task["zone"]; if (z === "planned") setHidePlanned(false); if (z === "done") setHideDone(false); updateTask(task.id, { zone: z }); }}
                           className="h-7 text-xs border border-input rounded bg-background px-1"
                         >
                           {ZONES.map((z) => <option key={z.key} value={z.key}>{z.label}</option>)}
