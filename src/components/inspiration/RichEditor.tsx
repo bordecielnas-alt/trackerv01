@@ -13,9 +13,10 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Bold, Italic, UnderlineIcon, Strikethrough, Code, Heading1, Heading2, Heading3,
   List, ListOrdered, ListChecks, Quote, Link2, Image as ImageIcon, Table as TableIcon,
@@ -58,7 +59,7 @@ export default function RichEditor({ content, onChange }: Props) {
   });
 
   useEffect(() => {
-    if (editor && content && editor.getHTML() !== content) {
+    if (editor && content && editor.getHTML() !== content && !editor.isFocused) {
       editor.commands.setContent(content, { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,32 +120,59 @@ function Toolbar({ editor }: { editor: Editor }) {
       <TBtn onClick={addImage}><ImageIcon className="h-4 w-4" /></TBtn>
       <TBtn onClick={addTable}><TableIcon className="h-4 w-4" /></TBtn>
       <Sep />
-      <ColorPicker icon={<Palette className="h-4 w-4" />} colors={COLORS} onPick={(c) => editor.chain().focus().setColor(c).run()} onClear={() => editor.chain().focus().unsetColor().run()} />
-      <ColorPicker icon={<Highlighter className="h-4 w-4" />} colors={COLORS} onPick={(c) => editor.chain().focus().toggleHighlight({ color: c }).run()} onClear={() => editor.chain().focus().unsetHighlight().run()} />
+      <ColorPicker title="Couleur du texte" icon={<Palette className="h-4 w-4" />} colors={COLORS} onPick={(c) => editor.chain().focus().setColor(c).run()} onClear={() => editor.chain().focus().unsetColor().run()} />
+      <ColorPicker title="Surlignage" icon={<Highlighter className="h-4 w-4" />} colors={COLORS} onPick={(c) => editor.chain().focus().toggleHighlight({ color: c }).run()} onClear={() => editor.chain().focus().unsetHighlight().run()} />
     </div>
   );
 }
 
 function TBtn({ active, onClick, title, children }: { active?: boolean; onClick: () => void; title?: string; children: React.ReactNode }) {
   return (
-    <Button type="button" size="sm" variant="ghost" title={title} onClick={onClick}
-      className={cn("h-8 w-8 p-0", active && "bg-accent text-accent-foreground")}>
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      title={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={cn("h-8 w-8 p-0", active && "bg-accent text-accent-foreground")}
+    >
       {children}
     </Button>
   );
 }
 function Sep() { return <Separator orientation="vertical" className="h-6 mx-0.5" />; }
 
-function ColorPicker({ icon, colors, onPick, onClear }: { icon: React.ReactNode; colors: string[]; onPick: (c: string) => void; onClear: () => void }) {
+function ColorPicker({ icon, title, colors, onPick, onClear }: { icon: React.ReactNode; title?: string; colors: string[]; onPick: (c: string) => void; onClear: () => void }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="relative group">
-      <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0">{icon}</Button>
-      <div className="absolute top-full left-0 mt-1 hidden group-hover:flex gap-1 p-2 bg-popover border rounded-md shadow-md z-20">
-        {colors.map((c) => (
-          <button key={c} onClick={() => onPick(c)} className="w-5 h-5 rounded border" style={{ background: c }} />
-        ))}
-        <button onClick={onClear} className="w-5 h-5 rounded border bg-background text-xs">×</button>
-      </div>
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" size="sm" variant="ghost" title={title} onMouseDown={(e) => e.preventDefault()} className="h-8 w-8 p-0">
+          {icon}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <div className="flex gap-1 flex-wrap max-w-[180px]">
+          {colors.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onPick(c); setOpen(false); }}
+              className="w-6 h-6 rounded border hover:scale-110 transition-transform"
+              style={{ background: c }}
+            />
+          ))}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { onClear(); setOpen(false); }}
+            className="w-6 h-6 rounded border bg-background text-xs hover:bg-accent"
+            title="Effacer"
+          >×</button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

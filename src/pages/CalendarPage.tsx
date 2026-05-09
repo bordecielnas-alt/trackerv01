@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchEvents, CaldavEvent } from "@/lib/caldav-store";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchEvents, CaldavEvent, syncCaldav, createEvent, updateEvent, deleteEvent, EventPayload } from "@/lib/caldav-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, CalendarRange, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarRange, AlertCircle, RefreshCw, Plus, Pencil, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import EventDialog from "@/components/calendar/EventDialog";
+import { toast } from "@/hooks/use-toast";
 
 type View = "month" | "week" | "day";
 
@@ -22,6 +24,10 @@ function fmtTime(d: Date) { return d.toLocaleTimeString("fr-FR", { hour: "2-digi
 export default function CalendarPage() {
   const [view, setView] = useState<View>("month");
   const [cursor, setCursor] = useState<Date>(startOfDay(new Date()));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<CaldavEvent | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const qc = useQueryClient();
 
   const { from, to } = useMemo(() => {
     if (view === "month") {
@@ -58,11 +64,56 @@ export default function CalendarPage() {
   const errorMessage = (error as Error | null)?.message;
   const isConfigError = errorMessage?.includes("non configuré") || errorMessage?.includes("CalDAV libraries");
 
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncCaldav();
+      await qc.invalidateQueries({ queryKey: ["caldav"] });
+      toast({ title: "Calendrier synchronisé" });
+    } catch (e: any) {
+      toast({ title: "Erreur de synchronisation", description: e?.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const openNew = () => { setEditing(null); setDialogOpen(true); };
+  const openEdit = (ev: CaldavEvent) => { setEditing(ev); setDialogOpen(true); };
+
+  const handleSubmit = async (payload: EventPayload) => {
+    if (editing) {
+      await updateEvent(editing.uid, payload);
+      toast({ title: "Évènement modifié" });
+    } else {
+      await createEvent(payload);
+      toast({ title: "Évènement créé" });
+    }
+    await qc.invalidateQueries({ queryKey: ["caldav"] });
+  };
+
+  const handleDelete = async (ev: CaldavEvent) => {
+    if (!confirm(`Supprimer "${ev.title}" ?`)) return;
+    try {
+      await deleteEvent(ev.uid);
+      toast({ title: "Évènement supprimé" });
+      await qc.invalidateQueries({ queryKey: ["caldav"] });
+    } catch (e: any) {
+      toast({ title: "Erreur de suppression", description: e?.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold flex items-center gap-2"><CalendarRange className="h-6 w-6 text-primary" /> Calendrier</h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="gap-1.5">
+            <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+            Synchroniser
+          </Button>
+          <Button size="sm" onClick={openNew} className="gap-1.5">
+            <Plus className="h-4 w-4" /> Nouvel évènement
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setCursor(startOfDay(new Date()))}>Aujourd'hui</Button>
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
@@ -92,17 +143,31 @@ export default function CalendarPage() {
 
       {isLoading && <div className="text-sm text-muted-foreground">Chargement des évènements…</div>}
 
-      {view === "month" && <MonthView cursor={cursor} events={events} onPickDay={(d) => { setCursor(d); setView("day"); }} />}
-      {view === "week" && <WeekView cursor={cursor} events={events} />}
-      {view === "day" && <DayView cursor={cursor} events={events} />}
+      {view === "month" && <MonthView cursor={cursor} events={events} onPickDay={(d) => { setCursor(d); setView("day"); }} onEdit={openEdit} onDelete={handleDelete} />}
+      {view === "week" && <WeekView cursor={cursor} events={events} onEdit={openEdit} onDelete={handleDelete} />}
+      {view === "day" && <DayView cursor={cursor} events={events} onEdit={openEdit} onDelete={handleDelete} />}
+
+      <EventDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initial={editing}
+        defaultDate={cursor}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }
 
 function eventColor() { return "bg-primary/15 text-primary border-l-2 border-primary"; }
 
-function EventChip({ ev, full }: { ev: CaldavEvent; full?: boolean }) {
+interface ChipActions {
+  onEdit: (ev: CaldavEvent) => void;
+  onDelete: (ev: CaldavEvent) => void;
+}
+
+function EventChip({ ev, full, onEdit, onDelete }: { ev: CaldavEvent; full?: boolean } & ChipActions) {
   const start = new Date(ev.start);
+  const canEdit = !!ev._url;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -112,7 +177,7 @@ function EventChip({ ev, full }: { ev: CaldavEvent; full?: boolean }) {
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <div className="font-semibold">{ev.title}</div>
           <div className="text-xs text-muted-foreground">
             {ev.allDay ? "Toute la journée" : `${fmtTime(new Date(ev.start))} – ${fmtTime(new Date(ev.end))}`}
@@ -120,13 +185,22 @@ function EventChip({ ev, full }: { ev: CaldavEvent; full?: boolean }) {
           </div>
           {ev.location && <div className="text-xs">📍 {ev.location}</div>}
           {ev.description && <div className="text-xs whitespace-pre-wrap text-muted-foreground border-t pt-2">{ev.description}</div>}
+          <div className="flex gap-2 pt-2 border-t">
+            <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => onEdit(ev)} disabled={!canEdit}>
+              <Pencil className="h-3.5 w-3.5" /> Modifier
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-destructive hover:text-destructive" onClick={() => onDelete(ev)} disabled={!canEdit}>
+              <Trash2 className="h-3.5 w-3.5" /> Supprimer
+            </Button>
+          </div>
+          {!canEdit && <div className="text-[10px] text-muted-foreground">Synchronisez pour activer l'édition.</div>}
         </div>
       </PopoverContent>
     </Popover>
   );
 }
 
-function MonthView({ cursor, events, onPickDay }: { cursor: Date; events: CaldavEvent[]; onPickDay: (d: Date) => void }) {
+function MonthView({ cursor, events, onPickDay, onEdit, onDelete }: { cursor: Date; events: CaldavEvent[]; onPickDay: (d: Date) => void } & ChipActions) {
   const start = startOfWeek(startOfMonth(cursor));
   const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
   const today = new Date();
@@ -145,7 +219,7 @@ function MonthView({ cursor, events, onPickDay }: { cursor: Date; events: Caldav
             <div key={i} className={cn("border-t border-l p-1 min-h-[100px] flex flex-col gap-0.5", !inMonth && "bg-muted/20 text-muted-foreground", (i + 1) % 7 === 0 && "border-r")}>
               <button onClick={() => onPickDay(d)} className={cn("text-xs font-medium self-start px-1.5 py-0.5 rounded hover:bg-accent", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</button>
               <div className="flex flex-col gap-0.5 overflow-hidden">
-                {dayEvents.slice(0, 3).map((e) => <EventChip key={e.uid + e.start} ev={e} />)}
+                {dayEvents.slice(0, 3).map((e) => <EventChip key={e.uid + e.start} ev={e} onEdit={onEdit} onDelete={onDelete} />)}
                 {dayEvents.length > 3 && <button onClick={() => onPickDay(d)} className="text-[10px] text-muted-foreground hover:text-foreground text-left px-1">+{dayEvents.length - 3} autre(s)</button>}
               </div>
             </div>
@@ -166,7 +240,7 @@ function HoursColumn() {
   );
 }
 
-function DayColumn({ date, events }: { date: Date; events: CaldavEvent[] }) {
+function DayColumn({ date, events, onEdit, onDelete }: { date: Date; events: CaldavEvent[] } & ChipActions) {
   const dayEvents = events.filter((e) => sameDay(new Date(e.start), date));
   return (
     <div className="relative flex-1 border-l">
@@ -178,7 +252,7 @@ function DayColumn({ date, events }: { date: Date; events: CaldavEvent[] }) {
         const height = Math.max(20, ((e.getTime() - s.getTime()) / 3600000) * 48);
         return (
           <div key={ev.uid + ev.start} className="absolute left-1 right-1" style={{ top, height }}>
-            <EventChip ev={ev} full />
+            <EventChip ev={ev} full onEdit={onEdit} onDelete={onDelete} />
           </div>
         );
       })}
@@ -186,7 +260,7 @@ function DayColumn({ date, events }: { date: Date; events: CaldavEvent[] }) {
   );
 }
 
-function WeekView({ cursor, events }: { cursor: Date; events: CaldavEvent[] }) {
+function WeekView({ cursor, events, onEdit, onDelete }: { cursor: Date; events: CaldavEvent[] } & ChipActions) {
   const start = startOfWeek(cursor);
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const today = new Date();
@@ -202,25 +276,25 @@ function WeekView({ cursor, events }: { cursor: Date; events: CaldavEvent[] }) {
       </div>
       <div className="flex max-h-[70vh] overflow-y-auto">
         <div className="w-12"><HoursColumn /></div>
-        {days.map((d) => <DayColumn key={d.toISOString()} date={d} events={events} />)}
+        {days.map((d) => <DayColumn key={d.toISOString()} date={d} events={events} onEdit={onEdit} onDelete={onDelete} />)}
       </div>
     </div>
   );
 }
 
-function DayView({ cursor, events }: { cursor: Date; events: CaldavEvent[] }) {
+function DayView({ cursor, events, onEdit, onDelete }: { cursor: Date; events: CaldavEvent[] } & ChipActions) {
   const allDay = events.filter((e) => e.allDay && sameDay(new Date(e.start), cursor));
   return (
     <div className="border rounded-lg bg-card overflow-hidden">
       {allDay.length > 0 && (
         <div className="border-b p-2 space-y-1">
           <div className="text-xs font-medium text-muted-foreground">Toute la journée</div>
-          {allDay.map((e) => <EventChip key={e.uid} ev={e} full />)}
+          {allDay.map((e) => <EventChip key={e.uid} ev={e} full onEdit={onEdit} onDelete={onDelete} />)}
         </div>
       )}
       <div className="flex max-h-[75vh] overflow-y-auto">
         <div className="w-14"><HoursColumn /></div>
-        <DayColumn date={cursor} events={events} />
+        <DayColumn date={cursor} events={events} onEdit={onEdit} onDelete={onDelete} />
       </div>
     </div>
   );

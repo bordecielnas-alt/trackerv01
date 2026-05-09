@@ -1,87 +1,65 @@
-## Objectif
+## Modifications
 
-Ajouter deux nouveaux onglets à l'application Tracker :
-1. **Inspiration** : un éditeur de texte riche complet (un seul grand document persistant)
-2. **Calendrier** : affichage en lecture seule d'un agenda CalDAV configuré dans l'onglet Admin, avec basculement Mois/Semaine/Jour
+### 1. Onglet Inspiration — Corriger les bugs des outils d'édition
 
-## 1. Onglet Inspiration
+Symptômes : la sélection se perd au clic sur un bouton de la barre d'outils, et certaines actions (couleur, surlignage) ne se déclenchent pas correctement.
 
-### UI / Édition
-- Page plein écran avec un éditeur de texte riche basé sur **Tiptap** (`@tiptap/react`, `@tiptap/starter-kit` + extensions).
-- Extensions activées : titres (H1–H3), gras/italique/souligné/barré, listes à puces / numérotées / cases à cocher, citation, code/bloc de code, liens cliquables (ouverture nouvel onglet), images (insertion par URL), tableaux, alignement, couleur de texte et surlignage.
-- Barre d'outils sticky en haut avec boutons groupés par catégorie.
-- Sauvegarde automatique avec debounce (~800 ms) et indicateur "Enregistré / Modification…".
+Causes :
+- Les boutons `Button` reçoivent le focus au clic, ce qui supprime la sélection de l'éditeur Tiptap → la commande s'applique à un curseur vide.
+- Les `ColorPicker` utilisent `group-hover` (CSS pur), donc le panneau disparaît dès que la souris quitte le bouton, et le clic sur une couleur peut être avalé par la fermeture.
 
-### Persistance
-- Nouveau endpoint serveur `/api/inspiration` (GET/PUT) dans `server/index.js`, fichier `inspiration.json` dans `/data` contenant `{ html: string, updatedAt: string }`.
-- Côté client : helper `inspiration-store.ts` utilisant `apiGet` / `apiPut` (avec fallback localStorage existant).
+Corrections (`src/components/inspiration/RichEditor.tsx`) :
+- Ajouter `onMouseDown={(e) => e.preventDefault()}` sur tous les boutons de la barre (`TBtn`) et sur les pastilles couleur, pour préserver la sélection.
+- Remplacer le `ColorPicker` à `group-hover` par un vrai `Popover` shadcn (clic pour ouvrir, clic couleur applique + ferme). Conserver l'icône, la grille de couleurs et le bouton "effacer".
+- Ajouter `editor.chain().focus()` systématiquement avant chaque commande (déjà présent partout, vérifier l'ordre).
+- S'assurer que le `useEffect` de sync ne réécrit pas le contenu pendant la frappe (déjà dépendant uniquement de `editor`, OK — ajouter une garde supplémentaire si besoin).
 
-### Navigation
-- Ajouter l'entrée dans `AppLayout.tsx` : icône `Lightbulb`, route `/inspiration`.
-- Position dans la sidebar : après "Habitudes", avant "Réglages".
+### 2. Onglet Calendrier — Édition d'évènements + bouton Synchroniser
 
-## 2. Onglet Calendrier
+#### Backend (`server/index.js`)
+Ajouter trois endpoints CalDAV en écriture, basés sur `tsdav` :
+- `POST /api/caldav/events` → crée un VEVENT (champs : `title`, `start`, `end`, `allDay`, `location`, `description`, `calendarName?`). Génère un UID, construit l'ICS avec `ICAL.Component`, appelle `client.createCalendarObject`.
+- `PUT /api/caldav/events/:uid` → récupère l'objet existant via son `url` (stocké en cache lors du fetch), modifie le VEVENT, appelle `client.updateCalendarObject`.
+- `DELETE /api/caldav/events/:uid` → appelle `client.deleteCalendarObject`.
 
-### Configuration (Admin)
-- Nouvelle section "Calendrier (CalDAV)" dans `AdminPage.tsx` avec champs :
-  - URL CalDAV
-  - Identifiant
-  - Mot de passe
-  - Nom du calendrier (optionnel, pour filtrage)
-  - Bouton "Tester la connexion"
-- Persistance via nouveau endpoint `/api/caldav-config` (GET/PUT), fichier `caldav.json` dans `/data`.
-- Le mot de passe est stocké côté serveur uniquement et **jamais renvoyé en clair** au client (le GET renvoie un placeholder masqué + booléen `hasPassword`).
+Pour permettre update/delete, enrichir `fetchCaldavEvents` : conserver `etag` et `url` de chaque objet, les renvoyer au client (champs additionnels `_url`, `_etag`, `_calendarUrl`). Stocker une map serveur `uid → { url, etag, calendarUrl }` rafraîchie à chaque fetch, utilisée par PUT/DELETE.
 
-### Backend proxy CalDAV
-- Nouvelles routes dans `server/index.js` :
-  - `POST /api/caldav/test` → tente une connexion et renvoie OK/erreur
-  - `GET /api/caldav/events?from=YYYY-MM-DD&to=YYYY-MM-DD` → renvoie la liste d'évènements normalisés `{ uid, title, start, end, allDay, location, description }`
-- Utilisation de la librairie **`tsdav`** (client CalDAV moderne) côté Node + **`ical.js`** pour parser les VEVENT.
-- Cache mémoire simple (TTL 60 s) pour éviter de retaper le serveur CalDAV à chaque navigation.
+Ajouter `POST /api/caldav/sync` qui vide `caldavCache` et renvoie `{ ok: true }` (le prochain fetch ira directement au serveur CalDAV).
 
-### UI Calendrier
-- Page `CalendarPage.tsx` avec :
-  - En-tête : titre du mois/semaine/jour courant, flèches précédent/suivant, bouton "Aujourd'hui", toggle de vue (Mois / Semaine / Jour).
-  - Vue **Mois** : grille 7×6 classique, pastilles d'évènements (max 3 visibles + "X autres"), clic sur une case = ouvre la vue jour.
-  - Vue **Semaine** : 7 colonnes, créneaux horaires 0–24 h, blocs d'évènements positionnés.
-  - Vue **Jour** : 1 colonne, créneaux horaires détaillés.
-  - Clic sur un évènement → popover avec titre, horaire, lieu, description.
-- Charge les évènements de la fenêtre visible via React Query (`useQuery` avec clé `[from, to]`).
-- Si aucune config CalDAV : message d'invitation à configurer dans Admin avec bouton vers `/admin`.
+#### Client (`src/lib/caldav-store.ts`)
+- Étendre `CaldavEvent` avec champs optionnels `_url`, `_etag`, `_calendarUrl`.
+- Ajouter `createEvent(payload)`, `updateEvent(uid, payload)`, `deleteEvent(uid)`, `syncCaldav()`.
 
-### Navigation
-- Entrée dans `AppLayout.tsx` : icône `CalendarRange`, route `/calendar`.
-- Position : après "Routine", avant "To Do".
+#### UI (`src/pages/CalendarPage.tsx`)
+- Ajouter un bouton **Synchroniser** (icône `RefreshCw`) dans la barre d'en-tête, à côté de "Aujourd'hui" : appelle `syncCaldav()` puis invalide `queryClient.invalidateQueries(["caldav"])`.
+- Ajouter un bouton **Nouvel évènement** (icône `Plus`) qui ouvre un `Dialog` avec formulaire (titre, date/heure début et fin, toute la journée, lieu, description).
+- Au clic sur un évènement (popover), ajouter deux boutons **Modifier** et **Supprimer**.
+  - Modifier : ouvre le même `Dialog` pré-rempli.
+  - Supprimer : confirmation puis `deleteEvent`.
+- Toutes les opérations invalident la query CalDAV.
+- Si l'évènement n'a pas `_url` (cache perdu), afficher un message demandant de synchroniser d'abord.
 
-## 3. Routes & App.tsx
-- Ajouter dans `App.tsx` :
-  - `<Route path="/inspiration" element={<InspirationPage />} />`
-  - `<Route path="/calendar" element={<CalendarPage />} />`
+Nouveau composant : `src/components/calendar/EventDialog.tsx` (formulaire création/édition).
 
-## 4. Dépendances à installer
-- Frontend : `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-table`, `@tiptap/extension-table-row`, `@tiptap/extension-table-cell`, `@tiptap/extension-table-header`, `@tiptap/extension-text-style`, `@tiptap/extension-color`, `@tiptap/extension-highlight`, `@tiptap/extension-underline`, `@tiptap/extension-task-list`, `@tiptap/extension-task-item`, `@tiptap/extension-text-align`.
-- Backend : `tsdav`, `ical.js`.
+### 3. Onglet To Do — "À planifier" masqué par défaut
 
-## 5. Fichiers concernés
+Dans `src/pages/TodoPage.tsx` :
+- Renommer la logique : remplacer le seul `hideDone` par deux états distincts `hideDone` (true par défaut, déjà le cas) et `hidePlanned` (true par défaut, **nouveau**).
+- Filtrer le rendu des zones pour masquer "planned" quand `hidePlanned` est true (même mécanisme que "done").
+- Le bouton existant "Masquer/Afficher terminées" est dupliqué en un second bouton du même style juste à côté : **"Masquer/Afficher à planifier"** (icônes `Eye`/`EyeOff`), pilotant `hidePlanned`.
+- Aucun changement sur le graphique (déjà restreint à persistent + inprogress).
+- Aucun changement sur l'ajout/déplacement d'une tâche dans "À planifier" : si l'utilisateur déplace une tâche vers cette zone alors qu'elle est masquée, on auto-démasque (`setHidePlanned(false)`) pour éviter la confusion.
 
-**Créés**
-- `src/pages/InspirationPage.tsx`
-- `src/pages/CalendarPage.tsx`
-- `src/components/inspiration/RichEditor.tsx` (Tiptap + toolbar)
-- `src/components/calendar/MonthView.tsx`, `WeekView.tsx`, `DayView.tsx`, `EventPopover.tsx`
-- `src/lib/inspiration-store.ts`
-- `src/lib/caldav-store.ts`
+## Fichiers concernés
 
-**Modifiés**
-- `server/index.js` : endpoints inspiration, caldav-config, caldav/test, caldav/events
-- `server/package.json` : ajout `tsdav`, `ical.js`
-- `src/App.tsx` : routes
-- `src/components/AppLayout.tsx` : navItems
-- `src/pages/AdminPage.tsx` : section CalDAV
+- `src/components/inspiration/RichEditor.tsx` — fix sélection + ColorPicker en Popover.
+- `server/index.js` — POST/PUT/DELETE évènements + endpoint sync + cache uid→url/etag.
+- `src/lib/caldav-store.ts` — helpers create/update/delete/sync, types étendus.
+- `src/pages/CalendarPage.tsx` — boutons Sync, Nouveau, Modifier, Supprimer dans le popover.
+- `src/components/calendar/EventDialog.tsx` — **nouveau** formulaire.
+- `src/pages/TodoPage.tsx` — état `hidePlanned`, second bouton, filtre de zone, auto-démasquage.
 
 ## Notes
 
-- Mémoire mise à jour avec deux nouvelles entrées : `features/inspiration` et `features/calendrier`, plus mise à jour de `style/navigation-layout` pour refléter le nouvel ordre.
-- Aucune modification du système de thème, scoring ou tâches existantes.
-- Le calendrier reste **lecture seule** ; toute édition future serait un autre lot.
-- Les identifiants CalDAV ne transitent qu'au moment du PUT et restent côté serveur.
+- Aucune modification du score, du drag&drop, de la navigation par fenêtre.
+- Mémoires à mettre à jour après implémentation : `features/calendrier` (CRUD + sync), `features/gestion-taches-todo` (visibilité "À planifier"), `features/inspiration` (correctifs toolbar).

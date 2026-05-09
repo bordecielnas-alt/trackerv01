@@ -17,6 +17,19 @@ export interface CaldavEvent {
   allDay: boolean;
   location: string;
   description: string;
+  _url?: string;
+  _etag?: string;
+  _calendarUrl?: string;
+}
+
+export interface EventPayload {
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location?: string;
+  description?: string;
+  calendarUrl?: string;
 }
 
 export async function loadCaldavConfig(): Promise<CaldavConfig> {
@@ -46,4 +59,37 @@ export async function fetchEvents(from: Date, to: Date): Promise<CaldavEvent[]> 
     throw new Error(err.error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+async function jsonOrThrow(res: Response) {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function syncCaldav(): Promise<void> {
+  if (!(await isApiAvailable())) return;
+  await jsonOrThrow(await fetch("/api/caldav/sync", { method: "POST" }));
+}
+
+export async function createEvent(payload: EventPayload): Promise<{ uid: string }> {
+  return jsonOrThrow(await fetch("/api/caldav/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }));
+}
+
+export async function updateEvent(uid: string, payload: EventPayload): Promise<void> {
+  await jsonOrThrow(await fetch(`/api/caldav/events/${encodeURIComponent(uid)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }));
+}
+
+export async function deleteEvent(uid: string): Promise<void> {
+  await jsonOrThrow(await fetch(`/api/caldav/events/${encodeURIComponent(uid)}`, { method: "DELETE" }));
 }
