@@ -175,26 +175,40 @@ app.put("/api/caldav-config", (req, res) => {
 });
 
 // --- CalDAV proxy ---
-// caldavCache declared above
 const CACHE_TTL = 60 * 1000;
 
-async function fetchCaldavEvents(from, to) {
-  if (!tsdav || !ICAL) throw new Error("CalDAV libraries not installed");
+// uid -> { url, etag, calendarUrl }
+const eventIndex = new Map();
+
+function getDavClient() {
   const cfg = getCaldavConfig();
   if (!cfg.url || !cfg.username || !cfg.password) throw new Error("CalDAV non configuré");
+  if (!tsdav) throw new Error("CalDAV libraries not installed");
+  return {
+    cfg,
+    client: new tsdav.DAVClient({
+      serverUrl: cfg.url,
+      credentials: { username: cfg.username, password: cfg.password },
+      authMethod: "Basic",
+      defaultAccountType: "caldav",
+    }),
+  };
+}
 
-  const client = new tsdav.DAVClient({
-    serverUrl: cfg.url,
-    credentials: { username: cfg.username, password: cfg.password },
-    authMethod: "Basic",
-    defaultAccountType: "caldav",
-  });
+async function getCalendars(client, cfg) {
   await client.login();
   let calendars = await client.fetchCalendars();
   if (cfg.calendarName) {
     const filtered = calendars.filter((c) => (c.displayName || "").toLowerCase().includes(cfg.calendarName.toLowerCase()));
     if (filtered.length) calendars = filtered;
   }
+  return calendars;
+}
+
+async function fetchCaldavEvents(from, to) {
+  if (!tsdav || !ICAL) throw new Error("CalDAV libraries not installed");
+  const { client, cfg } = getDavClient();
+  const calendars = await getCalendars(client, cfg);
   const events = [];
   for (const cal of calendars) {
     let objects;
@@ -215,8 +229,8 @@ async function fetchCaldavEvents(from, to) {
           const ev = new ICAL.Event(ve);
           const start = ev.startDate.toJSDate();
           const end = ev.endDate ? ev.endDate.toJSDate() : start;
-          // basic window filter
           if (end < new Date(from) || start > new Date(to)) continue;
+          eventIndex.set(ev.uid, { url: obj.url, etag: obj.etag, calendarUrl: cal.url });
           events.push({
             uid: ev.uid,
             title: ev.summary || "(sans titre)",
@@ -225,6 +239,9 @@ async function fetchCaldavEvents(from, to) {
             allDay: ev.startDate.isDate,
             location: ev.location || "",
             description: ev.description || "",
+            _url: obj.url,
+            _etag: obj.etag,
+            _calendarUrl: cal.url,
           });
         }
       } catch (e) { /* skip malformed */ }
@@ -249,6 +266,11 @@ app.get("/api/caldav/events", async (req, res) => {
   }
 });
 
+app.post("/api/caldav/sync", (_req, res) => {
+  caldavCache.clear();
+  res.json({ ok: true });
+});
+
 app.post("/api/caldav/test", async (_req, res) => {
   if (!tsdav) return res.status(500).json({ ok: false, error: "tsdav non installé" });
   const cfg = getCaldavConfig();
@@ -265,6 +287,88 @@ app.post("/api/caldav/test", async (_req, res) => {
     res.json({ ok: true, calendars: cals.map((c) => c.displayName || c.url) });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// --- CalDAV write operations ---
+function pad2(n) { return String(n).padStart(2, "0"); }
+function toIcsDate(date, allDay) {
+  const d = new Date(date);
+  if (allDay) {
+    return `${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}`;
+  }
+  return `${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}${pad2(d.getUTCSeconds())}Z`;
+}
+function escIcs(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;"); }
+
+function buildIcs({ uid, title, start, end, allDay, location, description }) {
+  const dtKey = allDay ? "DTSTART;VALUE=DATE" : "DTSTART";
+  const dtEndKey = allDay ? "DTEND;VALUE=DATE" : "DTEND";
+  const now = toIcsDate(new Date(), false);
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Tracker//CalDAV//FR",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${now}`,
+    `${dtKey}:${toIcsDate(start, allDay)}`,
+    `${dtEndKey}:${toIcsDate(end, allDay)}`,
+    `SUMMARY:${escIcs(title)}`,
+  ];
+  if (location) lines.push(`LOCATION:${escIcs(location)}`);
+  if (description) lines.push(`DESCRIPTION:${escIcs(description)}`);
+  lines.push("END:VEVENT", "END:VCALENDAR");
+  return lines.join("\r\n");
+}
+
+app.post("/api/caldav/events", async (req, res) => {
+  try {
+    const { client, cfg } = getDavClient();
+    const calendars = await getCalendars(client, cfg);
+    const target = req.body.calendarUrl
+      ? calendars.find((c) => c.url === req.body.calendarUrl) || calendars[0]
+      : calendars[0];
+    if (!target) return res.status(400).json({ error: "Aucun calendrier disponible" });
+    const uid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}@tracker`;
+    const ics = buildIcs({ uid, ...req.body });
+    const filename = `${uid}.ics`;
+    await client.createCalendarObject({ calendar: target, filename, iCalString: ics });
+    caldavCache.clear();
+    res.json({ ok: true, uid });
+  } catch (e) {
+    console.error("CalDAV create error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/api/caldav/events/:uid", async (req, res) => {
+  try {
+    const { client } = getDavClient();
+    const idx = eventIndex.get(req.params.uid);
+    if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
+    const ics = buildIcs({ uid: req.params.uid, ...req.body });
+    await client.updateCalendarObject({ calendarObject: { url: idx.url, etag: idx.etag, data: ics } });
+    caldavCache.clear();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("CalDAV update error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/caldav/events/:uid", async (req, res) => {
+  try {
+    const { client } = getDavClient();
+    const idx = eventIndex.get(req.params.uid);
+    if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
+    await client.deleteCalendarObject({ calendarObject: { url: idx.url, etag: idx.etag } });
+    eventIndex.delete(req.params.uid);
+    caldavCache.clear();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("CalDAV delete error:", e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
