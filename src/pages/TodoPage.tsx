@@ -217,7 +217,8 @@ export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [windowOffset, setWindowOffset] = useState<number>(0); // in days, 0 = today-centered
   const dates = buildDateWindow(windowOffset);
-  const [hideDone, setHideDone] = useState(false);
+  const [hideDone, setHideDone] = useState(true);
+  const [hidePlanned, setHidePlanned] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
@@ -389,6 +390,10 @@ export default function TodoPage() {
             {allExpanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
             {allExpanded ? "Tout replier" : "Tout déplier"}
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setHidePlanned(!hidePlanned)} className="gap-1.5">
+            {hidePlanned ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            {hidePlanned ? "Afficher à planifier" : "Masquer à planifier"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setHideDone(!hideDone)} className="gap-1.5">
             {hideDone ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             {hideDone ? "Afficher terminées" : "Masquer terminées"}
@@ -425,7 +430,7 @@ export default function TodoPage() {
         </div>
       </div>
 
-      {ZONES.filter((z) => !(z.key === "done" && hideDone)).map((zone) => {
+      {ZONES.filter((z) => !(z.key === "done" && hideDone) && !(z.key === "planned" && hidePlanned)).map((zone) => {
         const zoneTasks = tasks.filter((t) => t.zone === zone.key);
         return (
           <div
