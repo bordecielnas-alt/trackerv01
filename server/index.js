@@ -353,25 +353,37 @@ function toIcsDate(date, allDay) {
 }
 function escIcs(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;"); }
 
-function buildIcs({ uid, title, start, end, allDay, location, description }) {
+function buildIcs({ uid, title, start, end, allDay, location, description, sequence = 0 }) {
   const dtKey = allDay ? "DTSTART;VALUE=DATE" : "DTSTART";
   const dtEndKey = allDay ? "DTEND;VALUE=DATE" : "DTEND";
   const now = toIcsDate(new Date(), false);
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
+    "CALSCALE:GREGORIAN",
     "PRODID:-//Tracker//CalDAV//FR",
     "BEGIN:VEVENT",
     `UID:${uid}`,
     `DTSTAMP:${now}`,
+    `LAST-MODIFIED:${now}`,
+    `SEQUENCE:${sequence}`,
     `${dtKey}:${toIcsDate(start, allDay)}`,
     `${dtEndKey}:${toIcsDate(end, allDay)}`,
     `SUMMARY:${escIcs(title)}`,
   ];
   if (location) lines.push(`LOCATION:${escIcs(location)}`);
   if (description) lines.push(`DESCRIPTION:${escIcs(description)}`);
-  lines.push("END:VEVENT", "END:VCALENDAR");
+  lines.push("END:VEVENT", "END:VCALENDAR", "");
   return lines.join("\r\n");
+}
+
+const ICS_HEADERS = { "Content-Type": "text/calendar; charset=utf-8" };
+
+function getResponseEtag(r) {
+  if (!r) return null;
+  if (typeof r.headers?.get === "function") return r.headers.get("etag");
+  if (r.headers && r.headers.etag) return r.headers.etag;
+  return null;
 }
 
 app.post("/api/caldav/events", async (req, res) => {
@@ -381,11 +393,20 @@ app.post("/api/caldav/events", async (req, res) => {
     const target = req.body.calendarUrl
       ? calendars.find((c) => c.url === req.body.calendarUrl) || calendars[0]
       : calendars[0];
-    if (!target) return res.status(400).json({ error: "Aucun calendrier disponible" });
+    if (!target) return res.status(400).json({ error: "Aucun calendrier d'évènements disponible" });
+    console.log(`[CalDAV] create -> ${target.displayName || target.url}`);
     const uid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}@tracker`;
-    const ics = buildIcs({ uid, ...req.body });
+    const ics = buildIcs({ uid, ...req.body, sequence: 0 });
     const filename = `${uid}.ics`;
-    await client.createCalendarObject({ calendar: target, filename, iCalString: ics });
+    const response = await client.createCalendarObject({
+      calendar: target,
+      filename,
+      iCalString: ics,
+      headers: ICS_HEADERS,
+    });
+    await ensureOk(response, "create");
+    const objectUrl = (response && response.url) || new URL(filename, target.url).toString();
+    eventIndex.set(uid, { url: objectUrl, etag: getResponseEtag(response), calendarUrl: target.url });
     caldavCache.clear();
     res.json({ ok: true, uid });
   } catch (e) {
@@ -399,8 +420,13 @@ app.put("/api/caldav/events/:uid", async (req, res) => {
     const { client } = getDavClient();
     const idx = eventIndex.get(req.params.uid);
     if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
-    const ics = buildIcs({ uid: req.params.uid, ...req.body });
-    await client.updateCalendarObject({ calendarObject: { url: idx.url, etag: idx.etag, data: ics } });
+    const ics = buildIcs({ uid: req.params.uid, ...req.body, sequence: Date.now() % 1000000 });
+    const response = await client.updateCalendarObject({
+      calendarObject: { url: idx.url, etag: idx.etag, data: ics },
+      headers: ICS_HEADERS,
+    });
+    await ensureOk(response, "update");
+    eventIndex.set(req.params.uid, { ...idx, etag: getResponseEtag(response) || idx.etag });
     caldavCache.clear();
     res.json({ ok: true });
   } catch (e) {
@@ -414,7 +440,10 @@ app.delete("/api/caldav/events/:uid", async (req, res) => {
     const { client } = getDavClient();
     const idx = eventIndex.get(req.params.uid);
     if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
-    await client.deleteCalendarObject({ calendarObject: { url: idx.url, etag: idx.etag } });
+    const response = await client.deleteCalendarObject({
+      calendarObject: { url: idx.url, etag: idx.etag },
+    });
+    await ensureOk(response, "delete");
     eventIndex.delete(req.params.uid);
     caldavCache.clear();
     res.json({ ok: true });
