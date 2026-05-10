@@ -195,14 +195,40 @@ function getDavClient() {
   };
 }
 
-async function getCalendars(client, cfg) {
+function isVeventCalendar(c) {
+  const comps = c.components || c.supportedCalendarComponentSet || [];
+  if (Array.isArray(comps) && comps.length) {
+    return comps.map((x) => String(x).toUpperCase()).includes("VEVENT");
+  }
+  return true; // fallback if server doesn't expose it
+}
+
+async function getCalendars(client, cfg, { writeOnly = false } = {}) {
   await client.login();
   let calendars = await client.fetchCalendars();
+  calendars = calendars.filter(isVeventCalendar);
   if (cfg.calendarName) {
     const filtered = calendars.filter((c) => (c.displayName || "").toLowerCase().includes(cfg.calendarName.toLowerCase()));
     if (filtered.length) calendars = filtered;
+    else if (writeOnly) throw new Error(`Calendrier "${cfg.calendarName}" introuvable`);
   }
   return calendars;
+}
+
+async function ensureOk(response, action) {
+  if (!response) return;
+  // tsdav returns either a Response, an array of them, or a parsed object depending on version
+  const responses = Array.isArray(response) ? response : [response];
+  for (const r of responses) {
+    if (r && typeof r.ok === "boolean" && !r.ok) {
+      let body = "";
+      try { body = (await r.text()).slice(0, 400); } catch {}
+      throw new Error(`CalDAV ${action} ${r.status} ${r.statusText || ""}: ${body}`);
+    }
+    if (r && r.status && r.status >= 400) {
+      throw new Error(`CalDAV ${action} ${r.status}: ${r.statusMessage || ""}`);
+    }
+  }
 }
 
 async function fetchCaldavEvents(from, to) {
