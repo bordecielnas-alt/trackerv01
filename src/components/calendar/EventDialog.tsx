@@ -128,7 +128,20 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
             <Label>Description</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
-          {error && <div className="text-sm text-destructive">{error}</div>}
+          {!initial && calendars.length > 1 && (
+            <div>
+              <Label>Calendrier</Label>
+              <Select value={calendarUrl} onValueChange={setCalendarUrl}>
+                <SelectTrigger><SelectValue placeholder="Choisir un calendrier" /></SelectTrigger>
+                <SelectContent>
+                  {calendars.map((c) => (
+                    <SelectItem key={c.url} value={c.url}>{c.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {error && <div className="text-sm text-destructive whitespace-pre-wrap break-words">{error}</div>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Annuler</Button>
