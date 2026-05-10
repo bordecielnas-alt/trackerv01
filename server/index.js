@@ -292,9 +292,35 @@ app.get("/api/caldav/events", async (req, res) => {
   }
 });
 
-app.post("/api/caldav/sync", (_req, res) => {
+app.post("/api/caldav/sync", async (_req, res) => {
   caldavCache.clear();
-  res.json({ ok: true });
+  eventIndex.clear();
+  try {
+    const now = new Date();
+    const from = new Date(now); from.setDate(from.getDate() - 90);
+    const to = new Date(now); to.setDate(to.getDate() + 180);
+    await fetchCaldavEvents(from, to);
+    res.json({ ok: true, indexed: eventIndex.size });
+  } catch (e) {
+    console.error("CalDAV sync error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// List writable VEVENT calendars
+app.get("/api/caldav/calendars", async (_req, res) => {
+  try {
+    const { client, cfg } = getDavClient();
+    const calendars = await getCalendars(client, cfg);
+    res.json(calendars.map((c) => ({
+      url: c.url,
+      displayName: c.displayName || c.url,
+      color: c.calendarColor || null,
+    })));
+  } catch (e) {
+    console.error("CalDAV calendars error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post("/api/caldav/test", async (_req, res) => {
