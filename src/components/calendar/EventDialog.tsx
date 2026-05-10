@@ -67,6 +67,13 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
     }
   }, [open, initial, defaultDate]);
 
+  // Auto-pick first calendar when list arrives (creation only)
+  useEffect(() => {
+    if (!initial && calendars.length && !calendarUrl) {
+      setCalendarUrl(calendars[0].url);
+    }
+  }, [calendars, initial, calendarUrl]);
+
   const handleSave = async () => {
     if (!title.trim()) { setError("Titre requis"); return; }
     setSaving(true); setError(null);
@@ -78,6 +85,7 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
         allDay,
         location: location.trim(),
         description: description.trim(),
+        ...(initial ? {} : { calendarUrl: calendarUrl || undefined }),
       });
       onOpenChange(false);
     } catch (e: any) {
