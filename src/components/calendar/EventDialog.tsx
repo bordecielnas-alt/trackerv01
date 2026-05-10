@@ -31,8 +31,16 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
   const [end, setEnd] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [calendarUrl, setCalendarUrl] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: calendars = [] } = useQuery({
+    queryKey: ["caldav-calendars"],
+    queryFn: listCalendars,
+    enabled: open && !initial,
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     if (!open) return;
