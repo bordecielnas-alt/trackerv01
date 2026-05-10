@@ -1,65 +1,66 @@
+## Diagnostic
+
+Les requêtes vers le backend renvoient OK (toast de succès) mais Nextcloud n'enregistre rien. Trois causes probables, toutes côté `server/index.js` :
+
+1. **Réponse CalDAV non validée** — `tsdav` ne lève pas systématiquement d'erreur si Nextcloud renvoie 4xx ; le code actuel ne vérifie pas le statut HTTP du PUT/DELETE WebDAV. Une ICS rejetée passe donc en silence.
+2. **Format ICS incomplet pour Nextcloud** — manque `CALSCALE:GREGORIAN`, le `Content-Type: text/calendar; charset=utf-8` n'est pas explicitement passé, et l'absence de TZID sur les évènements non-allDay peut être refusée.
+3. **Mauvais calendrier ciblé** — `calendars[0]` est utilisé par défaut. Si plusieurs calendriers existent (ex: "Personnel" + "Anniversaires" + "Contacts" généré par Nextcloud), l'évènement peut atterrir dans un calendrier non-affiché côté Nextcloud Web.
+
+S'ajoute un point ergonomique : pas de choix de calendrier dans le dialogue, et `eventIndex` n'est pas pré-rempli à la création (il faut une re-sync avant de pouvoir éditer un évènement fraîchement créé).
+
 ## Modifications
 
-### 1. Onglet Inspiration — Corriger les bugs des outils d'édition
+### `server/index.js`
 
-Symptômes : la sélection se perd au clic sur un bouton de la barre d'outils, et certaines actions (couleur, surlignage) ne se déclenchent pas correctement.
+- **Validation stricte des réponses tsdav** : envelopper `createCalendarObject`, `updateCalendarObject`, `deleteCalendarObject` ; lire `response.status` et `response.statusText`, et si `!response.ok`, lire le body et `throw` une erreur explicite contenant le statut + extrait du corps. C'est ce qui remontera enfin la vraie erreur Nextcloud (403 read-only, 412 If-Match, 415 mauvais Content-Type, etc.).
+- **ICS conforme Nextcloud** :
+  - Ajouter `CALSCALE:GREGORIAN` après `VERSION:2.0`.
+  - Forcer le header `Content-Type: text/calendar; charset=utf-8` sur create/update.
+  - Ajouter une `SEQUENCE:0` (incrémentée à chaque update) et `LAST-MODIFIED`.
+  - Pour les évènements non-allDay : continuer à utiliser UTC (`Z`) — c'est valide et évite les VTIMEZONE.
+- **Filtrage des calendriers d'écriture** : ne garder que les calendriers où `cal.components` inclut `VEVENT` (exclut adressbooks/tasks). Si un `calendarName` est configuré, l'utiliser exclusivement (erreur claire si introuvable).
+- **Endpoint `GET /api/caldav/calendars`** : retourne `[{ url, displayName, color }]` filtrés VEVENT, pour alimenter un select dans le dialog.
+- **Pré-remplir `eventIndex` à la création** : après `createCalendarObject`, faire un `propfind` (ou utiliser la response) pour récupérer `etag` + `url` du nouvel objet, et l'enregistrer dans `eventIndex` immédiatement. Permet l'édition/suppression sans re-sync.
+- **Sync vraiment synchronisante** : `/api/caldav/sync` clear le cache **et** exécute un `fetchCaldavEvents` sur ±90 jours pour repeupler `eventIndex`.
+- **Logs serveur** : `console.log` du calendrier ciblé (URL + displayName) et du statut HTTP retourné, pour diagnostic Unraid.
 
-Causes :
-- Les boutons `Button` reçoivent le focus au clic, ce qui supprime la sélection de l'éditeur Tiptap → la commande s'applique à un curseur vide.
-- Les `ColorPicker` utilisent `group-hover` (CSS pur), donc le panneau disparaît dès que la souris quitte le bouton, et le clic sur une couleur peut être avalé par la fermeture.
+### `src/lib/caldav-store.ts`
 
-Corrections (`src/components/inspiration/RichEditor.tsx`) :
-- Ajouter `onMouseDown={(e) => e.preventDefault()}` sur tous les boutons de la barre (`TBtn`) et sur les pastilles couleur, pour préserver la sélection.
-- Remplacer le `ColorPicker` à `group-hover` par un vrai `Popover` shadcn (clic pour ouvrir, clic couleur applique + ferme). Conserver l'icône, la grille de couleurs et le bouton "effacer".
-- Ajouter `editor.chain().focus()` systématiquement avant chaque commande (déjà présent partout, vérifier l'ordre).
-- S'assurer que le `useEffect` de sync ne réécrit pas le contenu pendant la frappe (déjà dépendant uniquement de `editor`, OK — ajouter une garde supplémentaire si besoin).
+- Nouvelle fonction `listCalendars()` → `GET /api/caldav/calendars`.
+- `EventPayload` accepte déjà `calendarUrl` ; conserver.
 
-### 2. Onglet Calendrier — Édition d'évènements + bouton Synchroniser
+### `src/components/calendar/EventDialog.tsx`
 
-#### Backend (`server/index.js`)
-Ajouter trois endpoints CalDAV en écriture, basés sur `tsdav` :
-- `POST /api/caldav/events` → crée un VEVENT (champs : `title`, `start`, `end`, `allDay`, `location`, `description`, `calendarName?`). Génère un UID, construit l'ICS avec `ICAL.Component`, appelle `client.createCalendarObject`.
-- `PUT /api/caldav/events/:uid` → récupère l'objet existant via son `url` (stocké en cache lors du fetch), modifie le VEVENT, appelle `client.updateCalendarObject`.
-- `DELETE /api/caldav/events/:uid` → appelle `client.deleteCalendarObject`.
+- Charger la liste des calendriers via `useQuery(["caldav-calendars"])`.
+- Ajouter un `<Select>` "Calendrier" (visible seulement à la création, pas en édition). Pré-sélectionner le premier ou celui du `calendarName` configuré.
+- Passer `calendarUrl` dans le payload `onSubmit`.
 
-Pour permettre update/delete, enrichir `fetchCaldavEvents` : conserver `etag` et `url` de chaque objet, les renvoyer au client (champs additionnels `_url`, `_etag`, `_calendarUrl`). Stocker une map serveur `uid → { url, etag, calendarUrl }` rafraîchie à chaque fetch, utilisée par PUT/DELETE.
+### `src/pages/CalendarPage.tsx`
 
-Ajouter `POST /api/caldav/sync` qui vide `caldavCache` et renvoie `{ ok: true }` (le prochain fetch ira directement au serveur CalDAV).
+- `handleSubmit` : entourer de `try/catch` pour afficher un toast d'erreur si l'API renvoie maintenant un 5xx explicite (sinon le dialog se ferme silencieusement).
 
-#### Client (`src/lib/caldav-store.ts`)
-- Étendre `CaldavEvent` avec champs optionnels `_url`, `_etag`, `_calendarUrl`.
-- Ajouter `createEvent(payload)`, `updateEvent(uid, payload)`, `deleteEvent(uid)`, `syncCaldav()`.
+## Détails techniques
 
-#### UI (`src/pages/CalendarPage.tsx`)
-- Ajouter un bouton **Synchroniser** (icône `RefreshCw`) dans la barre d'en-tête, à côté de "Aujourd'hui" : appelle `syncCaldav()` puis invalide `queryClient.invalidateQueries(["caldav"])`.
-- Ajouter un bouton **Nouvel évènement** (icône `Plus`) qui ouvre un `Dialog` avec formulaire (titre, date/heure début et fin, toute la journée, lieu, description).
-- Au clic sur un évènement (popover), ajouter deux boutons **Modifier** et **Supprimer**.
-  - Modifier : ouvre le même `Dialog` pré-rempli.
-  - Supprimer : confirmation puis `deleteEvent`.
-- Toutes les opérations invalident la query CalDAV.
-- Si l'évènement n'a pas `_url` (cache perdu), afficher un message demandant de synchroniser d'abord.
-
-Nouveau composant : `src/components/calendar/EventDialog.tsx` (formulaire création/édition).
-
-### 3. Onglet To Do — "À planifier" masqué par défaut
-
-Dans `src/pages/TodoPage.tsx` :
-- Renommer la logique : remplacer le seul `hideDone` par deux états distincts `hideDone` (true par défaut, déjà le cas) et `hidePlanned` (true par défaut, **nouveau**).
-- Filtrer le rendu des zones pour masquer "planned" quand `hidePlanned` est true (même mécanisme que "done").
-- Le bouton existant "Masquer/Afficher terminées" est dupliqué en un second bouton du même style juste à côté : **"Masquer/Afficher à planifier"** (icônes `Eye`/`EyeOff`), pilotant `hidePlanned`.
-- Aucun changement sur le graphique (déjà restreint à persistent + inprogress).
-- Aucun changement sur l'ajout/déplacement d'une tâche dans "À planifier" : si l'utilisateur déplace une tâche vers cette zone alors qu'elle est masquée, on auto-démasque (`setHidePlanned(false)`) pour éviter la confusion.
+```text
+Flux corrigé create:
+  POST /api/caldav/events { title, start, end, allDay, calendarUrl, ... }
+    → buildIcs (avec CALSCALE, SEQUENCE:0, LAST-MODIFIED)
+    → tsdav.createCalendarObject({ calendar, filename, iCalString,
+                                    headers: { 'Content-Type': 'text/calendar; charset=utf-8' } })
+    → si response.ok: lire ETag header, eventIndex.set(uid, { url: response.url, etag, calendarUrl })
+    → si !response.ok: throw new Error(`CalDAV ${status}: ${bodyText.slice(0,300)}`)
+```
 
 ## Fichiers concernés
 
-- `src/components/inspiration/RichEditor.tsx` — fix sélection + ColorPicker en Popover.
-- `server/index.js` — POST/PUT/DELETE évènements + endpoint sync + cache uid→url/etag.
-- `src/lib/caldav-store.ts` — helpers create/update/delete/sync, types étendus.
-- `src/pages/CalendarPage.tsx` — boutons Sync, Nouveau, Modifier, Supprimer dans le popover.
-- `src/components/calendar/EventDialog.tsx` — **nouveau** formulaire.
-- `src/pages/TodoPage.tsx` — état `hidePlanned`, second bouton, filtre de zone, auto-démasquage.
+- `server/index.js`
+- `src/lib/caldav-store.ts`
+- `src/components/calendar/EventDialog.tsx`
+- `src/pages/CalendarPage.tsx`
 
-## Notes
+## Résultat attendu
 
-- Aucune modification du score, du drag&drop, de la navigation par fenêtre.
-- Mémoires à mettre à jour après implémentation : `features/calendrier` (CRUD + sync), `features/gestion-taches-todo` (visibilité "À planifier"), `features/inspiration` (correctifs toolbar).
+- Création/édition/suppression réellement persistées dans Nextcloud, vérifiables depuis l'UI Nextcloud.
+- En cas d'échec CalDAV, un toast rouge avec le vrai code HTTP + extrait du message Nextcloud (fini les faux "OK").
+- Choix explicite du calendrier cible à la création.
+- Édition possible immédiatement après création, sans re-synchronisation manuelle.

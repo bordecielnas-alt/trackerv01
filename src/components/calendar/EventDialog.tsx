@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CaldavEvent, EventPayload } from "@/lib/caldav-store";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CaldavEvent, EventPayload, listCalendars } from "@/lib/caldav-store";
 
 interface Props {
   open: boolean;
@@ -29,8 +31,16 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
   const [end, setEnd] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [calendarUrl, setCalendarUrl] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: calendars = [] } = useQuery({
+    queryKey: ["caldav-calendars"],
+    queryFn: listCalendars,
+    enabled: open && !initial,
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +67,13 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
     }
   }, [open, initial, defaultDate]);
 
+  // Auto-pick first calendar when list arrives (creation only)
+  useEffect(() => {
+    if (!initial && calendars.length && !calendarUrl) {
+      setCalendarUrl(calendars[0].url);
+    }
+  }, [calendars, initial, calendarUrl]);
+
   const handleSave = async () => {
     if (!title.trim()) { setError("Titre requis"); return; }
     setSaving(true); setError(null);
@@ -68,6 +85,7 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
         allDay,
         location: location.trim(),
         description: description.trim(),
+        ...(initial ? {} : { calendarUrl: calendarUrl || undefined }),
       });
       onOpenChange(false);
     } catch (e: any) {
@@ -110,7 +128,20 @@ export default function EventDialog({ open, onOpenChange, initial, defaultDate, 
             <Label>Description</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
-          {error && <div className="text-sm text-destructive">{error}</div>}
+          {!initial && calendars.length > 1 && (
+            <div>
+              <Label>Calendrier</Label>
+              <Select value={calendarUrl} onValueChange={setCalendarUrl}>
+                <SelectTrigger><SelectValue placeholder="Choisir un calendrier" /></SelectTrigger>
+                <SelectContent>
+                  {calendars.map((c) => (
+                    <SelectItem key={c.url} value={c.url}>{c.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {error && <div className="text-sm text-destructive whitespace-pre-wrap break-words">{error}</div>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Annuler</Button>

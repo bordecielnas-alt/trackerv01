@@ -93,3 +93,16 @@ export async function updateEvent(uid: string, payload: EventPayload): Promise<v
 export async function deleteEvent(uid: string): Promise<void> {
   await jsonOrThrow(await fetch(`/api/caldav/events/${encodeURIComponent(uid)}`, { method: "DELETE" }));
 }
+
+export interface CalendarInfo {
+  url: string;
+  displayName: string;
+  color: string | null;
+}
+
+export async function listCalendars(): Promise<CalendarInfo[]> {
+  if (!(await isApiAvailable())) return [];
+  const res = await fetch("/api/caldav/calendars");
+  if (!res.ok) return [];
+  return res.json();
+}
