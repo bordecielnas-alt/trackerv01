@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CaldavEvent, EventPayload } from "@/lib/caldav-store";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CaldavEvent, EventPayload, listCalendars } from "@/lib/caldav-store";
 
 interface Props {
   open: boolean;
