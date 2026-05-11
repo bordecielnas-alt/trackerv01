@@ -15,7 +15,6 @@ const navItems = [
   { to: "/inspiration", label: "Inspiration", icon: Lightbulb },
   { to: "/settings", label: "Réglages", icon: Settings },
   { to: "/edition", label: "Édition", icon: TableProperties },
-  { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 interface AppLayoutProps {
