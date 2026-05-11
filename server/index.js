@@ -152,6 +152,15 @@ app.put("/api/inspiration", (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Inspiration Todo ---
+app.get("/api/inspiration-todo", (_req, res) => {
+  res.json(readJSON(FILES.inspirationTodo, { items: [] }));
+});
+app.put("/api/inspiration-todo", (req, res) => {
+  writeJSON(FILES.inspirationTodo, req.body);
+  res.json({ ok: true });
+});
+
 // --- CalDAV config ---
 const caldavCache = new Map();
 function getCaldavConfig() {
