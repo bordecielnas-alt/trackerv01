@@ -432,13 +432,14 @@ app.post("/api/caldav/events", async (req, res) => {
 
 app.put("/api/caldav/events/:uid", async (req, res) => {
   try {
-    const { client } = getDavClient();
+    const { client, cfg } = getDavClient();
+    await client.login();
     const idx = eventIndex.get(req.params.uid);
     if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
     const ics = buildIcs({ uid: req.params.uid, ...req.body, sequence: Date.now() % 1000000 });
     const response = await client.updateCalendarObject({
       calendarObject: { url: idx.url, etag: idx.etag, data: ics },
-      headers: ICS_HEADERS,
+      headers: { ...ICS_HEADERS, ...authHeader(cfg) },
     });
     await ensureOk(response, "update");
     eventIndex.set(req.params.uid, { ...idx, etag: getResponseEtag(response) || idx.etag });
@@ -446,6 +447,26 @@ app.put("/api/caldav/events/:uid", async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error("CalDAV update error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/caldav/events/:uid", async (req, res) => {
+  try {
+    const { client, cfg } = getDavClient();
+    await client.login();
+    const idx = eventIndex.get(req.params.uid);
+    if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
+    const response = await client.deleteCalendarObject({
+      calendarObject: { url: idx.url, etag: idx.etag },
+      headers: authHeader(cfg),
+    });
+    await ensureOk(response, "delete");
+    eventIndex.delete(req.params.uid);
+    caldavCache.clear();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("CalDAV delete error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
