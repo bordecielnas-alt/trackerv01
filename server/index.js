@@ -389,6 +389,11 @@ function buildIcs({ uid, title, start, end, allDay, location, description, seque
 
 const ICS_HEADERS = { "Content-Type": "text/calendar; charset=utf-8" };
 
+function authHeader(cfg) {
+  const token = Buffer.from(`${cfg.username}:${cfg.password}`).toString("base64");
+  return { Authorization: `Basic ${token}` };
+}
+
 function getResponseEtag(r) {
   if (!r) return null;
   if (typeof r.headers?.get === "function") return r.headers.get("etag");
