@@ -55,7 +55,6 @@ const App = () => {
               <Route path="/habits" element={<HabitsPage />} />
               <Route path="/inspiration" element={<InspirationPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/admin" element={<AdminPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
