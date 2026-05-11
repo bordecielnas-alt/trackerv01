@@ -29,6 +29,7 @@ const FILES = {
   habits: path.join(DATA_DIR, "habits.json"),
   theme: path.join(DATA_DIR, "theme.json"),
   inspiration: path.join(DATA_DIR, "inspiration.json"),
+  inspirationTodo: path.join(DATA_DIR, "inspiration-todo.json"),
   caldav: path.join(DATA_DIR, "caldav.json"),
 };
 
@@ -148,6 +149,15 @@ app.get("/api/inspiration", (_req, res) => {
 });
 app.put("/api/inspiration", (req, res) => {
   writeJSON(FILES.inspiration, { ...req.body, updatedAt: new Date().toISOString() });
+  res.json({ ok: true });
+});
+
+// --- Inspiration Todo ---
+app.get("/api/inspiration-todo", (_req, res) => {
+  res.json(readJSON(FILES.inspirationTodo, { items: [] }));
+});
+app.put("/api/inspiration-todo", (req, res) => {
+  writeJSON(FILES.inspirationTodo, req.body);
   res.json({ ok: true });
 });
 
@@ -379,6 +389,11 @@ function buildIcs({ uid, title, start, end, allDay, location, description, seque
 
 const ICS_HEADERS = { "Content-Type": "text/calendar; charset=utf-8" };
 
+function authHeader(cfg) {
+  const token = Buffer.from(`${cfg.username}:${cfg.password}`).toString("base64");
+  return { Authorization: `Basic ${token}` };
+}
+
 function getResponseEtag(r) {
   if (!r) return null;
   if (typeof r.headers?.get === "function") return r.headers.get("etag");
@@ -402,7 +417,7 @@ app.post("/api/caldav/events", async (req, res) => {
       calendar: target,
       filename,
       iCalString: ics,
-      headers: ICS_HEADERS,
+      headers: { ...ICS_HEADERS, ...authHeader(cfg) },
     });
     await ensureOk(response, "create");
     const objectUrl = (response && response.url) || new URL(filename, target.url).toString();
@@ -417,13 +432,14 @@ app.post("/api/caldav/events", async (req, res) => {
 
 app.put("/api/caldav/events/:uid", async (req, res) => {
   try {
-    const { client } = getDavClient();
+    const { client, cfg } = getDavClient();
+    await client.login();
     const idx = eventIndex.get(req.params.uid);
     if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
     const ics = buildIcs({ uid: req.params.uid, ...req.body, sequence: Date.now() % 1000000 });
     const response = await client.updateCalendarObject({
       calendarObject: { url: idx.url, etag: idx.etag, data: ics },
-      headers: ICS_HEADERS,
+      headers: { ...ICS_HEADERS, ...authHeader(cfg) },
     });
     await ensureOk(response, "update");
     eventIndex.set(req.params.uid, { ...idx, etag: getResponseEtag(response) || idx.etag });
@@ -437,11 +453,13 @@ app.put("/api/caldav/events/:uid", async (req, res) => {
 
 app.delete("/api/caldav/events/:uid", async (req, res) => {
   try {
-    const { client } = getDavClient();
+    const { client, cfg } = getDavClient();
+    await client.login();
     const idx = eventIndex.get(req.params.uid);
     if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
     const response = await client.deleteCalendarObject({
       calendarObject: { url: idx.url, etag: idx.etag },
+      headers: authHeader(cfg),
     });
     await ensureOk(response, "delete");
     eventIndex.delete(req.params.uid);
@@ -452,6 +470,7 @@ app.delete("/api/caldav/events/:uid", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Tracker backend listening on port ${PORT}`);
