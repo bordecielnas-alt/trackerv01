@@ -417,7 +417,7 @@ app.post("/api/caldav/events", async (req, res) => {
       calendar: target,
       filename,
       iCalString: ics,
-      headers: ICS_HEADERS,
+      headers: { ...ICS_HEADERS, ...authHeader(cfg) },
     });
     await ensureOk(response, "create");
     const objectUrl = (response && response.url) || new URL(filename, target.url).toString();
