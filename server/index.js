@@ -471,23 +471,6 @@ app.delete("/api/caldav/events/:uid", async (req, res) => {
   }
 });
 
-app.delete("/api/caldav/events/:uid", async (req, res) => {
-  try {
-    const { client } = getDavClient();
-    const idx = eventIndex.get(req.params.uid);
-    if (!idx) return res.status(404).json({ error: "Évènement introuvable (synchronisez d'abord)" });
-    const response = await client.deleteCalendarObject({
-      calendarObject: { url: idx.url, etag: idx.etag },
-    });
-    await ensureOk(response, "delete");
-    eventIndex.delete(req.params.uid);
-    caldavCache.clear();
-    res.json({ ok: true });
-  } catch (e) {
-    console.error("CalDAV delete error:", e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Tracker backend listening on port ${PORT}`);
