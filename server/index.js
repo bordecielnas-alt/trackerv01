@@ -29,6 +29,7 @@ const FILES = {
   habits: path.join(DATA_DIR, "habits.json"),
   theme: path.join(DATA_DIR, "theme.json"),
   inspiration: path.join(DATA_DIR, "inspiration.json"),
+  inspirationTodo: path.join(DATA_DIR, "inspiration-todo.json"),
   caldav: path.join(DATA_DIR, "caldav.json"),
 };
 
