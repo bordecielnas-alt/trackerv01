@@ -17,7 +17,7 @@ import TodoPage from "@/pages/TodoPage";
 import HabitsPage from "@/pages/HabitsPage";
 import InspirationPage from "@/pages/InspirationPage";
 import CalendarPage from "@/pages/CalendarPage";
-import AdminPage from "@/pages/AdminPage";
+
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,7 +55,6 @@ const App = () => {
               <Route path="/habits" element={<HabitsPage />} />
               <Route path="/inspiration" element={<InspirationPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/admin" element={<AdminPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>

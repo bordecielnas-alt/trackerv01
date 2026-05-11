@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { CalendarDays, Settings, BarChart3, TableProperties, ShieldCheck, LogOut, Clock, ListTodo, PanelLeft, Repeat, Lightbulb, CalendarRange } from "lucide-react";
+import { CalendarDays, Settings, BarChart3, TableProperties, LogOut, Clock, ListTodo, PanelLeft, Repeat, Lightbulb, CalendarRange } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,6 @@ const navItems = [
   { to: "/inspiration", label: "Inspiration", icon: Lightbulb },
   { to: "/settings", label: "Réglages", icon: Settings },
   { to: "/edition", label: "Édition", icon: TableProperties },
-  { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 interface AppLayoutProps {
