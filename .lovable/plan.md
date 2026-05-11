@@ -1,66 +1,47 @@
-## Diagnostic
+# Plan
 
-Les requêtes vers le backend renvoient OK (toast de succès) mais Nextcloud n'enregistre rien. Trois causes probables, toutes côté `server/index.js` :
+## 1. Calendrier — Corriger l'erreur 401 sur create/update/delete
 
-1. **Réponse CalDAV non validée** — `tsdav` ne lève pas systématiquement d'erreur si Nextcloud renvoie 4xx ; le code actuel ne vérifie pas le statut HTTP du PUT/DELETE WebDAV. Une ICS rejetée passe donc en silence.
-2. **Format ICS incomplet pour Nextcloud** — manque `CALSCALE:GREGORIAN`, le `Content-Type: text/calendar; charset=utf-8` n'est pas explicitement passé, et l'absence de TZID sur les évènements non-allDay peut être refusée.
-3. **Mauvais calendrier ciblé** — `calendars[0]` est utilisé par défaut. Si plusieurs calendriers existent (ex: "Personnel" + "Anniversaires" + "Contacts" généré par Nextcloud), l'évènement peut atterrir dans un calendrier non-affiché côté Nextcloud Web.
+**Cause :** Les requêtes de lecture (`fetchCalendarObjects`) fonctionnent car `client.login()` est appelé dans `getCalendars()`. Mais pour les écritures (`createCalendarObject`, `updateCalendarObject`, `deleteCalendarObject`), `getDavClient()` retourne un client neuf qui n'a jamais appelé `login()` et `tsdav` n'attache pas automatiquement l'en-tête `Authorization: Basic` à ces requêtes WebDAV brutes vers Nextcloud → Sabre/DAV répond 401 NotAuthenticated.
 
-S'ajoute un point ergonomique : pas de choix de calendrier dans le dialogue, et `eventIndex` n'est pas pré-rempli à la création (il faut une re-sync avant de pouvoir éditer un évènement fraîchement créé).
+**Correctif `server/index.js` :**
+- Construire un en-tête `Authorization: Basic <base64(user:pass)>` à partir de la config et le passer **explicitement** dans `headers` de chaque appel d'écriture (`createCalendarObject`, `updateCalendarObject`, `deleteCalendarObject`), en plus du `Content-Type: text/calendar`.
+- Pour `update` et `delete`, appeler `getCalendars(client, cfg)` (ou simplement `client.login()`) avant l'opération afin de garantir un état authentifié cohérent.
+- Conserver `ensureOk` pour remonter les codes HTTP réels.
 
-## Modifications
+## 2. Inspiration — Layout 3 colonnes (1/2 + 1/4 + 1/4)
 
-### `server/index.js`
+**`src/pages/InspirationPage.tsx` :**
+- Remplacer le conteneur `max-w-5xl` par une grille responsive 12 colonnes :
+  - col-span-6 : `RichEditor` existant (inchangé)
+  - col-span-3 : nouvelle colonne "À faire"
+  - col-span-3 : nouvelle colonne "Terminé"
+- Sur petits écrans : empilage vertical.
 
-- **Validation stricte des réponses tsdav** : envelopper `createCalendarObject`, `updateCalendarObject`, `deleteCalendarObject` ; lire `response.status` et `response.statusText`, et si `!response.ok`, lire le body et `throw` une erreur explicite contenant le statut + extrait du corps. C'est ce qui remontera enfin la vraie erreur Nextcloud (403 read-only, 412 If-Match, 415 mauvais Content-Type, etc.).
-- **ICS conforme Nextcloud** :
-  - Ajouter `CALSCALE:GREGORIAN` après `VERSION:2.0`.
-  - Forcer le header `Content-Type: text/calendar; charset=utf-8` sur create/update.
-  - Ajouter une `SEQUENCE:0` (incrémentée à chaque update) et `LAST-MODIFIED`.
-  - Pour les évènements non-allDay : continuer à utiliser UTC (`Z`) — c'est valide et évite les VTIMEZONE.
-- **Filtrage des calendriers d'écriture** : ne garder que les calendriers où `cal.components` inclut `VEVENT` (exclut adressbooks/tasks). Si un `calendarName` est configuré, l'utiliser exclusivement (erreur claire si introuvable).
-- **Endpoint `GET /api/caldav/calendars`** : retourne `[{ url, displayName, color }]` filtrés VEVENT, pour alimenter un select dans le dialog.
-- **Pré-remplir `eventIndex` à la création** : après `createCalendarObject`, faire un `propfind` (ou utiliser la response) pour récupérer `etag` + `url` du nouvel objet, et l'enregistrer dans `eventIndex` immédiatement. Permet l'édition/suppression sans re-sync.
-- **Sync vraiment synchronisante** : `/api/caldav/sync` clear le cache **et** exécute un `fetchCaldavEvents` sur ±90 jours pour repeupler `eventIndex`.
-- **Logs serveur** : `console.log` du calendrier ciblé (URL + displayName) et du statut HTTP retourné, pour diagnostic Unraid.
+**Nouveau composant `src/components/inspiration/InspirationTodo.tsx` :**
+- Deux listes côte à côte ("À faire" / "Terminé") rendues par la page (ou un sous-composant `TodoColumn` réutilisable).
+- "À faire" :
+  - Champ input + bouton + (Enter pour ajouter).
+  - Pour chaque item : checkbox + libellé éditable inline (clic = édition, blur/Enter = sauvegarde).
+  - Cocher → l'item passe dans "Terminé" avec horodatage.
+- "Terminé" :
+  - Affiche les items terminés (libellé barré).
+  - Décocher = retour vers "À faire".
+  - Bouton corbeille pour supprimer définitivement.
+- Style : cartes (`Card`), couleurs sémantiques, bouton ghost icône `Trash2` / `Check`.
 
-### `src/lib/caldav-store.ts`
+**Persistence — nouveau `src/lib/inspiration-todo-store.ts` :**
+- Modèle : `{ items: { id, text, done, createdAt, completedAt? }[] }`.
+- Helpers : `loadInspirationTodos()`, `saveInspirationTodos()` via `apiGet`/`apiPut` sur clé `inspiration-todo` (et localStorage fallback comme les autres stores).
 
-- Nouvelle fonction `listCalendars()` → `GET /api/caldav/calendars`.
-- `EventPayload` accepte déjà `calendarUrl` ; conserver.
+**Backend `server/index.js` :**
+- Ajouter `inspiration-todo` dans `FILES` et exposer `GET`/`PUT /api/inspiration-todo` (même schéma simple que `todo`/`habits`).
 
-### `src/components/calendar/EventDialog.tsx`
+## Fichiers touchés
+- `server/index.js` — fix auth CalDAV + endpoint inspiration-todo
+- `src/pages/InspirationPage.tsx` — layout 3 colonnes
+- `src/components/inspiration/InspirationTodo.tsx` *(nouveau)*
+- `src/lib/inspiration-todo-store.ts` *(nouveau)*
 
-- Charger la liste des calendriers via `useQuery(["caldav-calendars"])`.
-- Ajouter un `<Select>` "Calendrier" (visible seulement à la création, pas en édition). Pré-sélectionner le premier ou celui du `calendarName` configuré.
-- Passer `calendarUrl` dans le payload `onSubmit`.
-
-### `src/pages/CalendarPage.tsx`
-
-- `handleSubmit` : entourer de `try/catch` pour afficher un toast d'erreur si l'API renvoie maintenant un 5xx explicite (sinon le dialog se ferme silencieusement).
-
-## Détails techniques
-
-```text
-Flux corrigé create:
-  POST /api/caldav/events { title, start, end, allDay, calendarUrl, ... }
-    → buildIcs (avec CALSCALE, SEQUENCE:0, LAST-MODIFIED)
-    → tsdav.createCalendarObject({ calendar, filename, iCalString,
-                                    headers: { 'Content-Type': 'text/calendar; charset=utf-8' } })
-    → si response.ok: lire ETag header, eventIndex.set(uid, { url: response.url, etag, calendarUrl })
-    → si !response.ok: throw new Error(`CalDAV ${status}: ${bodyText.slice(0,300)}`)
-```
-
-## Fichiers concernés
-
-- `server/index.js`
-- `src/lib/caldav-store.ts`
-- `src/components/calendar/EventDialog.tsx`
-- `src/pages/CalendarPage.tsx`
-
-## Résultat attendu
-
-- Création/édition/suppression réellement persistées dans Nextcloud, vérifiables depuis l'UI Nextcloud.
-- En cas d'échec CalDAV, un toast rouge avec le vrai code HTTP + extrait du message Nextcloud (fini les faux "OK").
-- Choix explicite du calendrier cible à la création.
-- Édition possible immédiatement après création, sans re-synchronisation manuelle.
+## Note déploiement
+Les changements `server/index.js` nécessiteront un rebuild/redémarrage du conteneur Docker Unraid.
