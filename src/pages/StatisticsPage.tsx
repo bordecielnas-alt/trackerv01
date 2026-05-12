@@ -290,10 +290,10 @@ export default function StatisticsPage() {
             <ResponsiveContainer width="100%" height={300}>
               {chartType === "line" ? (
                 <LineChart data={chartData} onClick={() => setActiveDot(true)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
                   <Legend />
                   <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                   {showRegression && (
@@ -302,10 +302,10 @@ export default function StatisticsPage() {
                 </LineChart>
               ) : (
                 <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
                   <Legend />
                   <Bar dataKey="Score" fill="hsl(174, 60%, 32%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -332,10 +332,10 @@ export default function StatisticsPage() {
                 <ResponsiveContainer width="100%" height={250}>
                   {chartType === "line" ? (
                     <LineChart data={chartData} onClick={() => setActiveDot(true)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip />
+                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
                       <Line type="monotone" dataKey={p!.name} stroke={CHART_COLORS[paramIdx % CHART_COLORS.length]} strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                       {showRegression && (
                         <Line type="monotone" dataKey={`${p!.name} (tendance)`} stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
@@ -343,10 +343,10 @@ export default function StatisticsPage() {
                     </LineChart>
                   ) : (
                     <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(200, 15%, 85%)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip />
+                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
                       <Bar dataKey={p!.name} fill={CHART_COLORS[paramIdx % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   )}
