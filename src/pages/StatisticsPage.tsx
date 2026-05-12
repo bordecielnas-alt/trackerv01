@@ -164,6 +164,7 @@ export default function StatisticsPage() {
         const row: Record<string, unknown> = {
           date: format(parseISO(e.date), "dd/MM", { locale: fr }),
           index: i,
+          _comment: e.comment || "",
         };
         parameters.forEach((p) => {
           row[p.name] = e.values[p.id] ?? null;
