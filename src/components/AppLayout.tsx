@@ -6,15 +6,15 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { to: "/", label: "Tracking", icon: CalendarDays },
-  { to: "/statistics", label: "Statistiques", icon: BarChart3 },
+  { to: "/", label: "Daily", icon: CalendarDays },
   { to: "/routine", label: "Routine", icon: Clock },
-  { to: "/calendar", label: "Calendrier", icon: CalendarRange },
-  { to: "/todo", label: "To Do", icon: ListTodo },
   { to: "/habits", label: "Habitudes", icon: Repeat },
-  { to: "/inspiration", label: "Inspiration", icon: Lightbulb },
+  { to: "/inspiration", label: "Plan", icon: Lightbulb },
+  { to: "/todo", label: "To Do", icon: ListTodo },
+  { to: "/calendar", label: "Calendrier", icon: CalendarRange },
+  { to: "/statistics", label: "Statistiques", icon: BarChart3 },
+  { to: "/edition", label: "Historique", icon: TableProperties },
   { to: "/settings", label: "Réglages", icon: Settings },
-  { to: "/edition", label: "Édition", icon: TableProperties },
 ];
 
 interface AppLayoutProps {
