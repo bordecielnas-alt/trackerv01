@@ -103,6 +103,37 @@ function TrendBadge({ trend, positiveIsGood = true }: { trend: TrendInfo; positi
   );
 }
 
+interface TooltipPayloadItem {
+  name: string;
+  value: number | string;
+  color: string;
+  payload?: Record<string, unknown>;
+}
+
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadItem[]; label?: string }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const comment = (payload[0]?.payload?._comment as string) || "";
+  return (
+    <div className="bg-popover text-popover-foreground border border-border shadow-lg rounded-md p-3 text-xs min-w-[140px]">
+      <div className="font-semibold mb-1.5">{label}</div>
+      <div className="space-y-1">
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: p.color }} />
+            <span className="text-muted-foreground">{p.name}:</span>
+            <span className="font-medium">{p.value}</span>
+          </div>
+        ))}
+      </div>
+      {comment && (
+        <div className="mt-2 pt-2 border-t border-border italic text-muted-foreground whitespace-pre-wrap break-words max-w-[260px]">
+          {comment}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StatisticsPage() {
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [entries, setEntries] = useState<DailyEntry[]>([]);
