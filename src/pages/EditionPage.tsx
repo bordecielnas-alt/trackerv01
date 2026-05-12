@@ -259,7 +259,7 @@ export default function EditionPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Édition</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Historique</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleImportConfig} className="gap-1 sm:gap-2">
             <Settings className="h-4 w-4" />

@@ -154,7 +154,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Réglages</h1>
 
-      <Accordion type="multiple" defaultValue={["tracking"]} className="space-y-2">
+      <Accordion type="multiple" defaultValue={[]} className="space-y-2">
         {/* Paramètres de tracking */}
         <AccordionItem value="tracking" className="border rounded-lg px-4 border-b">
           <AccordionTrigger className="text-base font-semibold hover:no-underline">
