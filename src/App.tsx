@@ -15,6 +15,7 @@ import StatisticsPage from "@/pages/StatisticsPage";
 import EditionPage from "@/pages/EditionPage";
 import TodoPage from "@/pages/TodoPage";
 import HabitsPage from "@/pages/HabitsPage";
+import TestPage from "@/pages/TestPage";
 import InspirationPage from "@/pages/InspirationPage";
 import CalendarPage from "@/pages/CalendarPage";
 
