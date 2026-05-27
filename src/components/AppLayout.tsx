@@ -9,6 +9,7 @@ const navItems = [
   { to: "/", label: "Daily", icon: CalendarDays },
   { to: "/routine", label: "Routine", icon: Clock },
   { to: "/habits", label: "Habitudes", icon: Repeat },
+  { to: "/test", label: "Test", icon: FlaskConical },
   { to: "/inspiration", label: "Plan", icon: Lightbulb },
   { to: "/todo", label: "To Do", icon: ListTodo },
   { to: "/calendar", label: "Calendrier", icon: CalendarRange },
