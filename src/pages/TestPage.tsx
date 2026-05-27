@@ -482,18 +482,20 @@ export default function TestPage() {
                       <span>S max {habit.sMax}</span>
                     </div>
                     <div className="relative h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={cn(
-                          "absolute top-0 h-full transition-all",
-                          currentS >= 0 ? "bg-green-500" : "bg-red-500"
-                        )}
-                        style={{
-                          left: `${((0 - habit.sMin) / sRange) * 100}%`,
-                          width: `${Math.abs(sPct - ((0 - habit.sMin) / sRange) * 100)}%`,
-                          transform: currentS < 0 ? "translateX(-100%)" : undefined,
-                          marginLeft: currentS < 0 ? `${((currentS - habit.sMin) / sRange) * 100}%` : undefined,
-                        }}
-                      />
+                      {(() => {
+                        const zeroPct = ((0 - habit.sMin) / sRange) * 100;
+                        const leftPct = currentS >= 0 ? zeroPct : sPct;
+                        const widthPct = Math.abs(sPct - zeroPct);
+                        return (
+                          <div
+                            className={cn(
+                              "absolute top-0 h-full transition-all",
+                              currentS >= 0 ? "bg-green-500" : "bg-red-500"
+                            )}
+                            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                          />
+                        );
+                      })()}
                       <div
                         className="absolute top-0 h-full w-px bg-foreground/40"
                         style={{ left: `${((0 - habit.sMin) / sRange) * 100}%` }}
