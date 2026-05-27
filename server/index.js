@@ -27,6 +27,7 @@ const FILES = {
   preferences: path.join(DATA_DIR, "preferences.json"),
   todo: path.join(DATA_DIR, "todo.json"),
   habits: path.join(DATA_DIR, "habits.json"),
+  testHabits: path.join(DATA_DIR, "test-habits.json"),
   theme: path.join(DATA_DIR, "theme.json"),
   inspiration: path.join(DATA_DIR, "inspiration.json"),
   inspirationTodo: path.join(DATA_DIR, "inspiration-todo.json"),
