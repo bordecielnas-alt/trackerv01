@@ -27,6 +27,7 @@ const FILES = {
   preferences: path.join(DATA_DIR, "preferences.json"),
   todo: path.join(DATA_DIR, "todo.json"),
   habits: path.join(DATA_DIR, "habits.json"),
+  testHabits: path.join(DATA_DIR, "test-habits.json"),
   theme: path.join(DATA_DIR, "theme.json"),
   inspiration: path.join(DATA_DIR, "inspiration.json"),
   inspirationTodo: path.join(DATA_DIR, "inspiration-todo.json"),
@@ -130,6 +131,16 @@ app.get("/api/habits", (_req, res) => {
 
 app.put("/api/habits", (req, res) => {
   writeJSON(FILES.habits, req.body);
+  res.json({ ok: true });
+});
+
+// --- Test Habits (dynamique S) ---
+app.get("/api/test-habits", (_req, res) => {
+  res.json(readJSON(FILES.testHabits, { habits: [] }));
+});
+
+app.put("/api/test-habits", (req, res) => {
+  writeJSON(FILES.testHabits, req.body);
   res.json({ ok: true });
 });
 
