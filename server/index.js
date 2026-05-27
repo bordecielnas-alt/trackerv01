@@ -134,6 +134,16 @@ app.put("/api/habits", (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Test Habits (dynamique S) ---
+app.get("/api/test-habits", (_req, res) => {
+  res.json(readJSON(FILES.testHabits, { habits: [] }));
+});
+
+app.put("/api/test-habits", (req, res) => {
+  writeJSON(FILES.testHabits, req.body);
+  res.json({ ok: true });
+});
+
 // --- Theme ---
 app.get("/api/theme", (_req, res) => {
   res.json(readJSON(FILES.theme, null));
