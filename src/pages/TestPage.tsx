@@ -86,7 +86,8 @@ function getCompletionRate(habit: TestHabit, days: number): number {
   return Math.round((completed / days) * 100);
 }
 
-// Rejoue l'historique depuis createdAt → today.
+// Rejoue l'historique depuis la première interaction enregistrée → today.
+// Indépendant de createdAt : on part de la plus ancienne date présente dans completions.
 function computeSeries(habit: TestHabit): {
   currentS: number;
   pointsByDate: Record<string, number>;
@@ -95,14 +96,20 @@ function computeSeries(habit: TestHabit): {
   const pointsByDate: Record<string, number> = {};
   let S = 0;
   let total = 0;
-  const start = new Date(habit.createdAt + "T12:00:00");
-  const end = new Date(todayStr() + "T12:00:00");
+
+  const keys = Object.keys(habit.completions || {});
+  if (keys.length === 0) return { currentS: 0, pointsByDate, totalPoints: 0 };
+
+  const startStr = keys.sort()[0];
+  const todayS = todayStr();
+  const start = new Date(startStr + "T12:00:00");
+  const end = new Date((startStr > todayS ? startStr : todayS) + "T12:00:00");
   if (isNaN(start.getTime())) return { currentS: 0, pointsByDate, totalPoints: 0 };
 
   const cursor = new Date(start);
   while (cursor.getTime() <= end.getTime()) {
     const ds = dateStr(cursor);
-    const done = !!habit.completions[ds];
+    const done = habit.completions[ds] === true;
     let pts: number;
     if (done) {
       pts = 0 + S; // P_base + S (S avant maj)
@@ -118,6 +125,7 @@ function computeSeries(habit: TestHabit): {
   }
   return { currentS: S, pointsByDate, totalPoints: Math.round(total * 100) / 100 };
 }
+
 
 function formatShortDate(s: string) {
   const d = new Date(s + "T12:00:00");
