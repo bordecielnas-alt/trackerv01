@@ -66,19 +66,6 @@ function getLastNDays(n: number): string[] {
   return days;
 }
 
-function getStreak(habit: TestHabit): number {
-  let streak = 0;
-  const d = new Date();
-  for (let i = 0; i < 365; i++) {
-    if (habit.completions[dateStr(d)]) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 function getCompletionRate(habit: TestHabit, days: number): number {
   const dates = getLastNDays(days);
