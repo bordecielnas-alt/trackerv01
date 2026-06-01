@@ -422,9 +422,6 @@ export default function TestPage() {
                     </button>
                   );
                 })}
-                <div className="ml-2 flex-1">
-                  <Progress value={rate14} className="h-1.5" />
-                </div>
               </div>
 
               {/* Détails étendus */}
