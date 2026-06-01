@@ -84,7 +84,7 @@ function computeSeries(habit: TestHabit): {
   let S = 0;
   let total = 0;
 
-  const keys = Object.keys(habit.completions || {});
+  const keys = Object.keys(habit.completions || {}).filter(k => habit.completions[k] === true);
   if (keys.length === 0) return { currentS: 0, pointsByDate, totalPoints: 0 };
 
   const startStr = keys.sort()[0];
