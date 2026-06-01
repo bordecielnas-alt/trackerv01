@@ -258,15 +258,6 @@ export default function TestPage() {
               <span className="text-sm font-semibold">{todayCompleted}/{totalToday}</span>
               <span className="text-xs text-muted-foreground">aujourd'hui</span>
             </div>
-            {habits.length > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/20">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">
-                  {Math.max(...habits.map(h => getStreak(h)), 0)}j
-                </span>
-                <span className="text-xs text-orange-600 dark:text-orange-400/70">meilleur streak</span>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
