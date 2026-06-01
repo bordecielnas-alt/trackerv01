@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
-  Plus, Trash2, Pencil, Check, X, Flame, Target,
+  Plus, Trash2, Pencil, Check, X, Target,
   ChevronDown, ChevronRight, TrendingUp, TrendingDown, Activity,
 } from "lucide-react";
 import { apiGet, apiPut } from "@/lib/api";
