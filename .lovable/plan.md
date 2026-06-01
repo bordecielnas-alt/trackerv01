@@ -1,32 +1,27 @@
-## Modifications de l'onglet Test
+## Ajustements onglet Test
 
-### Objectif
-Retirer toute la notion de **streak** (série de jours consécutifs) car elle n'a pas de sens avec le système dynamique S. Utiliser l'espace gagné pour **étendre la plage de jours affichés**.
+### 1. Retirer la barre de progression à côté des jours
+Dans `src/pages/TestPage.tsx`, dans le tracker des 14 jours, supprimer le bloc :
+```tsx
+<div className="ml-2 flex-1">
+  <Progress value={rate14} className="h-1.5" />
+</div>
+```
+Les boutons-jours s'affichent seuls (alignés à gauche, sans barre).
 
-### Changements dans `src/pages/TestPage.tsx`
+### 2. Calcul de points à partir du premier jour validé
+Modifier `computeSeries` : la date de départ devient la plus ancienne clé `completions` **avec valeur `true`** (et non plus la plus ancienne interaction quelle qu'elle soit).
 
-1. **Supprimer la fonction `getStreak`** (lignes ~69-81) et l'import `Flame` inutilisé.
+```ts
+const keys = Object.keys(habit.completions || {})
+  .filter(k => habit.completions[k] === true);
+if (keys.length === 0) return { currentS: 0, pointsByDate: {}, totalPoints: 0 };
+const startStr = keys.sort()[0];
+```
 
-2. **Supprimer la barre de streak dans la stats globale** — retirer le bloc `meilleur streak` (lignes ~274-282) qui contient l'icône `Flame`.
+Conséquences :
+- Tant qu'aucune case n'est cochée, aucun point n'est calculé et S = 0.
+- Dès la première coche, S démarre à 0 ce jour-là puis le rejeu jour-par-jour s'enchaîne jusqu'à aujourd'hui (les jours non cochés entre deux coches restent comptés comme ratés).
+- Les coches `false` explicites antérieures à la première `true` sont ignorées.
 
-3. **Supprimer le badge streak par habitude** — retirer le bloc affichant `{streak}j` avec icône `Flame` dans l'en-tête de chaque carte (lignes ~403-407).
-
-4. **Étendre le tracker visible par défaut** : `last7` → `last14` (14 jours)
-   - Remplacer `getLastNDays(7)` par `getLastNDays(14)`
-   - Adapter le rendu du tracker pour 14 jours
-   - Mettre à jour l'affichage des points : label **"Points 7j"** → **"Points 14j"**
-   - Remplacer le `rate7` par un `rate14`
-
-5. **Étendre la heatmap** : `last30` → `last90` (90 jours)
-   - Remplacer `getLastNDays(30)` par `getLastNDays(90)`
-   - Adapter le label **"30 derniers jours"** → **"90 derniers jours"**
-   - Mettre à jour le label **"Points 30j"** → **"Points 90j"**
-   - Remplacer le `rate30` par un `rate90`
-
-6. **Nettoyage** : retirer toute variable `streak`, `rate7`, `rate30` et fonctions dérivées du streak.
-
-### UI après changement
-- Barre globale : total points, Σ S, et taux aujourd'hui uniquement (pas de streak).
-- En-tête de chaque habitude : S, points total, taux 14j, taux 90j (pas de badge streak).
-- Tracker affiché : 14 jours avec points par jour.
-- Section étendue : heatmap sur 90 jours, barre S, points 14j / 90j.
+Aucun autre changement.
