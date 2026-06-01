@@ -386,7 +386,7 @@ export default function TestPage() {
 
               {/* Tracker 7j */}
               <div className="flex items-center gap-1">
-                {last7.map(date => {
+                {last14.map(date => {
                   const done = habit.completions[date];
                   const isToday = date === today;
                   const dayIdx = new Date(date + "T12:00:00").getDay();
@@ -423,7 +423,7 @@ export default function TestPage() {
                   );
                 })}
                 <div className="ml-2 flex-1">
-                  <Progress value={rate7} className="h-1.5" />
+                  <Progress value={rate14} className="h-1.5" />
                 </div>
               </div>
 
@@ -482,8 +482,8 @@ export default function TestPage() {
                       />
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                      <span>Points 7j : <span className={cn("font-medium", points7 > 0 ? "text-green-600 dark:text-green-400" : points7 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points7}</span></span>
-                      <span>Points 30j : <span className={cn("font-medium", points30 > 0 ? "text-green-600 dark:text-green-400" : points30 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points30}</span></span>
+                      <span>Points 14j : <span className={cn("font-medium", points14 > 0 ? "text-green-600 dark:text-green-400" : points14 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points14}</span></span>
+                      <span>Points 90j : <span className={cn("font-medium", points90 > 0 ? "text-green-600 dark:text-green-400" : points90 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points90}</span></span>
                     </div>
                   </div>
 
@@ -511,9 +511,9 @@ export default function TestPage() {
 
                   {/* Heatmap 30j */}
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">30 derniers jours</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">90 derniers jours</div>
                     <div className="flex gap-[2px] flex-wrap">
-                      {last30.map(date => {
+                      {last90.map(date => {
                         const done = habit.completions[date];
                         const pts = pointsByDate[date];
                         return (
