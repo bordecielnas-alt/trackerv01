@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
-  Plus, Trash2, Pencil, Check, X, Flame, Target,
+  Plus, Trash2, Pencil, Check, X, Target,
   ChevronDown, ChevronRight, TrendingUp, TrendingDown, Activity,
 } from "lucide-react";
 import { apiGet, apiPut } from "@/lib/api";
@@ -66,19 +66,6 @@ function getLastNDays(n: number): string[] {
   return days;
 }
 
-function getStreak(habit: TestHabit): number {
-  let streak = 0;
-  const d = new Date();
-  for (let i = 0; i < 365; i++) {
-    if (habit.completions[dateStr(d)]) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 function getCompletionRate(habit: TestHabit, days: number): number {
   const dates = getLastNDays(days);
@@ -214,8 +201,8 @@ export default function TestPage() {
   };
 
   const today = todayStr();
-  const last7 = getLastNDays(7);
-  const last30 = getLastNDays(30);
+  const last14 = getLastNDays(14);
+  const last90 = getLastNDays(90);
 
   const todayCompleted = habits.filter(h => h.completions[today]).length;
   const totalToday = habits.length;
@@ -271,15 +258,6 @@ export default function TestPage() {
               <span className="text-sm font-semibold">{todayCompleted}/{totalToday}</span>
               <span className="text-xs text-muted-foreground">aujourd'hui</span>
             </div>
-            {habits.length > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/20">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">
-                  {Math.max(...habits.map(h => getStreak(h)), 0)}j
-                </span>
-                <span className="text-xs text-orange-600 dark:text-orange-400/70">meilleur streak</span>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -360,14 +338,13 @@ export default function TestPage() {
 
       {habits.map(habit => {
         const { currentS, pointsByDate, totalPoints: hTotal } = computeSeries(habit);
-        const streak = getStreak(habit);
-        const rate7 = getCompletionRate(habit, 7);
-        const rate30 = getCompletionRate(habit, 30);
+        const rate14 = getCompletionRate(habit, 14);
+        const rate90 = getCompletionRate(habit, 90);
         const isEditing = editingId === habit.id;
         const sRange = habit.sMax - habit.sMin || 1;
         const sPct = Math.max(0, Math.min(100, ((currentS - habit.sMin) / sRange) * 100));
-        const points7 = Math.round(last7.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
-        const points30 = Math.round(last30.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
+        const points14 = Math.round(last14.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
+        const points90 = Math.round(last90.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
 
         return (
           <Card key={habit.id} className="overflow-hidden">
@@ -400,13 +377,8 @@ export default function TestPage() {
                       : "bg-muted text-muted-foreground"
                   )}>S = {Math.round(currentS * 100) / 100}</span>
                   <span className="text-xs font-semibold text-foreground">{hTotal} pts</span>
-                  {streak > 0 && (
-                    <span className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
-                      <Flame className="h-3 w-3" /> {streak}j
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">{rate7}% 7j</span>
-                  <span className="text-xs text-muted-foreground">{rate30}% 30j</span>
+                  <span className="text-xs text-muted-foreground">{rate14}% 14j</span>
+                  <span className="text-xs text-muted-foreground">{rate90}% 90j</span>
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => startEdit(habit)}><Pencil className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteHabit(habit.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -414,7 +386,7 @@ export default function TestPage() {
 
               {/* Tracker 7j */}
               <div className="flex items-center gap-1">
-                {last7.map(date => {
+                {last14.map(date => {
                   const done = habit.completions[date];
                   const isToday = date === today;
                   const dayIdx = new Date(date + "T12:00:00").getDay();
@@ -451,7 +423,7 @@ export default function TestPage() {
                   );
                 })}
                 <div className="ml-2 flex-1">
-                  <Progress value={rate7} className="h-1.5" />
+                  <Progress value={rate14} className="h-1.5" />
                 </div>
               </div>
 
@@ -510,8 +482,8 @@ export default function TestPage() {
                       />
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                      <span>Points 7j : <span className={cn("font-medium", points7 > 0 ? "text-green-600 dark:text-green-400" : points7 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points7}</span></span>
-                      <span>Points 30j : <span className={cn("font-medium", points30 > 0 ? "text-green-600 dark:text-green-400" : points30 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points30}</span></span>
+                      <span>Points 14j : <span className={cn("font-medium", points14 > 0 ? "text-green-600 dark:text-green-400" : points14 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points14}</span></span>
+                      <span>Points 90j : <span className={cn("font-medium", points90 > 0 ? "text-green-600 dark:text-green-400" : points90 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points90}</span></span>
                     </div>
                   </div>
 
@@ -539,9 +511,9 @@ export default function TestPage() {
 
                   {/* Heatmap 30j */}
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">30 derniers jours</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">90 derniers jours</div>
                     <div className="flex gap-[2px] flex-wrap">
-                      {last30.map(date => {
+                      {last90.map(date => {
                         const done = habit.completions[date];
                         const pts = pointsByDate[date];
                         return (
