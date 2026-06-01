@@ -201,8 +201,8 @@ export default function TestPage() {
   };
 
   const today = todayStr();
-  const last7 = getLastNDays(7);
-  const last30 = getLastNDays(30);
+  const last14 = getLastNDays(14);
+  const last90 = getLastNDays(90);
 
   const todayCompleted = habits.filter(h => h.completions[today]).length;
   const totalToday = habits.length;
