@@ -377,13 +377,8 @@ export default function TestPage() {
                       : "bg-muted text-muted-foreground"
                   )}>S = {Math.round(currentS * 100) / 100}</span>
                   <span className="text-xs font-semibold text-foreground">{hTotal} pts</span>
-                  {streak > 0 && (
-                    <span className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
-                      <Flame className="h-3 w-3" /> {streak}j
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">{rate7}% 7j</span>
-                  <span className="text-xs text-muted-foreground">{rate30}% 30j</span>
+                  <span className="text-xs text-muted-foreground">{rate14}% 14j</span>
+                  <span className="text-xs text-muted-foreground">{rate90}% 90j</span>
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => startEdit(habit)}><Pencil className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteHabit(habit.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
