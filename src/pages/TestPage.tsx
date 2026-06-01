@@ -338,14 +338,13 @@ export default function TestPage() {
 
       {habits.map(habit => {
         const { currentS, pointsByDate, totalPoints: hTotal } = computeSeries(habit);
-        const streak = getStreak(habit);
-        const rate7 = getCompletionRate(habit, 7);
-        const rate30 = getCompletionRate(habit, 30);
+        const rate14 = getCompletionRate(habit, 14);
+        const rate90 = getCompletionRate(habit, 90);
         const isEditing = editingId === habit.id;
         const sRange = habit.sMax - habit.sMin || 1;
         const sPct = Math.max(0, Math.min(100, ((currentS - habit.sMin) / sRange) * 100));
-        const points7 = Math.round(last7.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
-        const points30 = Math.round(last30.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
+        const points14 = Math.round(last14.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
+        const points90 = Math.round(last90.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
 
         return (
           <Card key={habit.id} className="overflow-hidden">
