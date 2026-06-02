@@ -338,7 +338,7 @@ export default function TestPage() {
 
       {habits.map(habit => {
         const { currentS, pointsByDate, totalPoints: hTotal } = computeSeries(habit);
-        const rate18 = getCompletionRate(habit, 21);
+        const rate18 = getCompletionRate(habit, 18);
         const rate90 = getCompletionRate(habit, 90);
         const isEditing = editingId === habit.id;
         const sRange = habit.sMax - habit.sMin || 1;
