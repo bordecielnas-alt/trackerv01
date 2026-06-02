@@ -428,28 +428,26 @@ export default function TestPage() {
               {habit.expanded && (
                 <div className="border-t border-border pt-2 mt-1 space-y-3">
                   {/* Atomic Habits */}
-                  {(
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="rounded-md bg-accent/30 p-2">
-                        <div className="font-semibold text-muted-foreground mb-0.5">🔔 Signal</div>
-                        {isEditing ? (
-                          <Input value={editForm.cue || ""} onChange={e => setEditForm({ ...editForm, cue: e.target.value })} className="h-6 text-xs" />
-                        ) : (<span>{habit.cue || "—"}</span>)}
-                      </div>
-                      <div className="rounded-md bg-accent/30 p-2">
-                        <div className="font-semibold text-muted-foreground mb-0.5">⚡ Routine</div>
-                        {isEditing ? (
-                          <Input value={editForm.routine || ""} onChange={e => setEditForm({ ...editForm, routine: e.target.value })} className="h-6 text-xs" />
-                        ) : (<span>{habit.routine || "—"}</span>)}
-                      </div>
-                      <div className="rounded-md bg-accent/30 p-2">
-                        <div className="font-semibold text-muted-foreground mb-0.5">🎁 Récompense</div>
-                        {isEditing ? (
-                          <Input value={editForm.reward || ""} onChange={e => setEditForm({ ...editForm, reward: e.target.value })} className="h-6 text-xs" />
-                        ) : (<span>{habit.reward || "—"}</span>)}
-                      </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded-md bg-accent/30 p-2">
+                      <div className="font-semibold text-muted-foreground mb-0.5">🔔 Signal</div>
+                      {isEditing ? (
+                        <Input value={editForm.cue || ""} onChange={e => setEditForm({ ...editForm, cue: e.target.value })} className="h-6 text-xs" />
+                      ) : (<span>{habit.cue || "—"}</span>)}
                     </div>
-                  )}
+                    <div className="rounded-md bg-accent/30 p-2">
+                      <div className="font-semibold text-muted-foreground mb-0.5">⚡ Routine</div>
+                      {isEditing ? (
+                        <Input value={editForm.routine || ""} onChange={e => setEditForm({ ...editForm, routine: e.target.value })} className="h-6 text-xs" />
+                      ) : (<span>{habit.routine || "—"}</span>)}
+                    </div>
+                    <div className="rounded-md bg-accent/30 p-2">
+                      <div className="font-semibold text-muted-foreground mb-0.5">🎁 Récompense</div>
+                      {isEditing ? (
+                        <Input value={editForm.reward || ""} onChange={e => setEditForm({ ...editForm, reward: e.target.value })} className="h-6 text-xs" />
+                      ) : (<span>{habit.reward || "—"}</span>)}
+                    </div>
+                  </div>
 
                   {/* Barre S */}
                   <div>
