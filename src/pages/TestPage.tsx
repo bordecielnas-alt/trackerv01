@@ -428,7 +428,7 @@ export default function TestPage() {
               {habit.expanded && (
                 <div className="border-t border-border pt-2 mt-1 space-y-3">
                   {/* Atomic Habits */}
-                  {(habit.cue || habit.routine || habit.reward || isEditing) && (
+                  {(
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="rounded-md bg-accent/30 p-2">
                         <div className="font-semibold text-muted-foreground mb-0.5">🔔 Signal</div>
