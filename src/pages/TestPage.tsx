@@ -201,7 +201,7 @@ export default function TestPage() {
   };
 
   const today = todayStr();
-  const last14 = getLastNDays(14);
+  const last21 = getLastNDays(21);
   const last90 = getLastNDays(90);
 
   const todayCompleted = habits.filter(h => h.completions[today]).length;
@@ -338,12 +338,12 @@ export default function TestPage() {
 
       {habits.map(habit => {
         const { currentS, pointsByDate, totalPoints: hTotal } = computeSeries(habit);
-        const rate14 = getCompletionRate(habit, 14);
+        const rate21 = getCompletionRate(habit, 21);
         const rate90 = getCompletionRate(habit, 90);
         const isEditing = editingId === habit.id;
         const sRange = habit.sMax - habit.sMin || 1;
         const sPct = Math.max(0, Math.min(100, ((currentS - habit.sMin) / sRange) * 100));
-        const points14 = Math.round(last14.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
+        const points21 = Math.round(last21.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
         const points90 = Math.round(last90.reduce((a, d) => a + (pointsByDate[d] ?? 0), 0) * 100) / 100;
 
         return (
@@ -377,7 +377,7 @@ export default function TestPage() {
                       : "bg-muted text-muted-foreground"
                   )}>S = {Math.round(currentS * 100) / 100}</span>
                   <span className="text-xs font-semibold text-foreground">{hTotal} pts</span>
-                  <span className="text-xs text-muted-foreground">{rate14}% 14j</span>
+                  <span className="text-xs text-muted-foreground">{rate21}% 21j</span>
                   <span className="text-xs text-muted-foreground">{rate90}% 90j</span>
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => startEdit(habit)}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -386,7 +386,7 @@ export default function TestPage() {
 
               {/* Tracker 7j */}
               <div className="flex items-center gap-1">
-                {last14.map(date => {
+                {last21.map(date => {
                   const done = habit.completions[date];
                   const isToday = date === today;
                   const dayIdx = new Date(date + "T12:00:00").getDay();
@@ -428,28 +428,26 @@ export default function TestPage() {
               {habit.expanded && (
                 <div className="border-t border-border pt-2 mt-1 space-y-3">
                   {/* Atomic Habits */}
-                  {(habit.cue || habit.routine || habit.reward || isEditing) && (
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="rounded-md bg-accent/30 p-2">
-                        <div className="font-semibold text-muted-foreground mb-0.5">🔔 Signal</div>
-                        {isEditing ? (
-                          <Input value={editForm.cue || ""} onChange={e => setEditForm({ ...editForm, cue: e.target.value })} className="h-6 text-xs" />
-                        ) : (<span>{habit.cue || "—"}</span>)}
-                      </div>
-                      <div className="rounded-md bg-accent/30 p-2">
-                        <div className="font-semibold text-muted-foreground mb-0.5">⚡ Routine</div>
-                        {isEditing ? (
-                          <Input value={editForm.routine || ""} onChange={e => setEditForm({ ...editForm, routine: e.target.value })} className="h-6 text-xs" />
-                        ) : (<span>{habit.routine || "—"}</span>)}
-                      </div>
-                      <div className="rounded-md bg-accent/30 p-2">
-                        <div className="font-semibold text-muted-foreground mb-0.5">🎁 Récompense</div>
-                        {isEditing ? (
-                          <Input value={editForm.reward || ""} onChange={e => setEditForm({ ...editForm, reward: e.target.value })} className="h-6 text-xs" />
-                        ) : (<span>{habit.reward || "—"}</span>)}
-                      </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded-md bg-accent/30 p-2">
+                      <div className="font-semibold text-muted-foreground mb-0.5">🔔 Signal</div>
+                      {isEditing ? (
+                        <Input value={editForm.cue || ""} onChange={e => setEditForm({ ...editForm, cue: e.target.value })} className="h-6 text-xs" />
+                      ) : (<span>{habit.cue || "—"}</span>)}
                     </div>
-                  )}
+                    <div className="rounded-md bg-accent/30 p-2">
+                      <div className="font-semibold text-muted-foreground mb-0.5">⚡ Routine</div>
+                      {isEditing ? (
+                        <Input value={editForm.routine || ""} onChange={e => setEditForm({ ...editForm, routine: e.target.value })} className="h-6 text-xs" />
+                      ) : (<span>{habit.routine || "—"}</span>)}
+                    </div>
+                    <div className="rounded-md bg-accent/30 p-2">
+                      <div className="font-semibold text-muted-foreground mb-0.5">🎁 Récompense</div>
+                      {isEditing ? (
+                        <Input value={editForm.reward || ""} onChange={e => setEditForm({ ...editForm, reward: e.target.value })} className="h-6 text-xs" />
+                      ) : (<span>{habit.reward || "—"}</span>)}
+                    </div>
+                  </div>
 
                   {/* Barre S */}
                   <div>
@@ -479,7 +477,7 @@ export default function TestPage() {
                       />
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                      <span>Points 14j : <span className={cn("font-medium", points14 > 0 ? "text-green-600 dark:text-green-400" : points14 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points14}</span></span>
+                      <span>Points 21j : <span className={cn("font-medium", points21 > 0 ? "text-green-600 dark:text-green-400" : points21 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points21}</span></span>
                       <span>Points 90j : <span className={cn("font-medium", points90 > 0 ? "text-green-600 dark:text-green-400" : points90 < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>{points90}</span></span>
                     </div>
                   </div>
