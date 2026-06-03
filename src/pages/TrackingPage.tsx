@@ -84,6 +84,10 @@ export default function TrackingPage() {
           {format(date, "EEEE d MMMM yyyy", { locale: fr })}
         </h1>
         <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" onClick={() => navigate("/edition")} className="gap-2 mr-2">
+            <TableProperties className="h-4 w-4" />
+            Historique
+          </Button>
           <Button variant="outline" size="icon" onClick={() => setDate(d => subDaysDate(d, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
