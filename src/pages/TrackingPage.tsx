@@ -24,6 +24,7 @@ import {
 let persistedDate: Date = new Date();
 
 export default function TrackingPage() {
+  const navigate = useNavigate();
   const [date, setDate] = useState<Date>(persistedDate);
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
