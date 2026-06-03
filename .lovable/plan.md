@@ -1,7 +1,22 @@
-Dans `src/pages/TestPage.tsx`, remplacer toutes les occurrences `21` (introduites pour le tracker) par `18` :
+## Modifications
 
-- `getLastNDays(21)` → `getLastNDays(18)`
-- `last21` → `last18`, `rate21` → `rate18`, `points21` → `points18`
-- Libellés `21j` → `18j` et `Points 21j` → `Points 18j`
+### 1. `src/components/AppLayout.tsx` — navigation
+- Retirer l'entrée `Habitudes` (`/habits`, icône `Repeat`).
+- Renommer `Test` → `Habits` (route `/test` conservée, icône `FlaskConical` conservée).
+- Retirer l'entrée `Historique` (`/edition`, icône `TableProperties`).
+- Nettoyer les imports d'icônes inutilisés (`Repeat`, `TableProperties`).
 
-Aucun autre changement.
+Ordre final du sidebar :
+Daily, Routine, Habits, Plan, To Do, Calendrier, Statistiques, Réglages.
+
+### 2. `src/App.tsx` — routes
+- Supprimer la route `/habits` et l'import `HabitsPage`.
+- Conserver la route `/edition` (toujours accessible via le nouveau bouton) et `/test`.
+
+### 3. `src/pages/TrackingPage.tsx` — bouton Historique
+- Ajouter un bouton `Historique` (variant `outline`, icône `TableProperties`) dans la barre d'en-tête à côté des contrôles de date, qui navigue vers `/edition` via `useNavigate` de `react-router-dom`.
+
+### 4. Mémoire
+- Mettre à jour `mem://index.md` (Core → nouvel ordre du sidebar) et `mem://style/navigation-layout` pour refléter la nouvelle navigation.
+
+Aucune logique métier modifiée ; les pages `HabitsPage.tsx` et `EditionPage.tsx` restent en place (EditionPage toujours routée, HabitsPage devient orpheline mais non supprimée pour préserver le code).
