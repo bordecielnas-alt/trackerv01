@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { format, addDays, subDays as subDaysDate } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, Save, ChevronLeft, ChevronRight, TableProperties } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
