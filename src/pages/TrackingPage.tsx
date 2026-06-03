@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { format, addDays, subDays as subDaysDate } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, Save, ChevronLeft, ChevronRight, TableProperties } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,6 +24,7 @@ import {
 let persistedDate: Date = new Date();
 
 export default function TrackingPage() {
+  const navigate = useNavigate();
   const [date, setDate] = useState<Date>(persistedDate);
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
@@ -82,6 +84,10 @@ export default function TrackingPage() {
           {format(date, "EEEE d MMMM yyyy", { locale: fr })}
         </h1>
         <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" onClick={() => navigate("/edition")} className="gap-2 mr-2">
+            <TableProperties className="h-4 w-4" />
+            Historique
+          </Button>
           <Button variant="outline" size="icon" onClick={() => setDate(d => subDaysDate(d, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
