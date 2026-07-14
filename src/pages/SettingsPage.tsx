@@ -298,6 +298,40 @@ export default function SettingsPage() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* Google Health */}
+        <AccordionItem value="health" className="border rounded-lg px-4 border-b">
+          <AccordionTrigger className="text-base font-semibold hover:no-underline">
+            Santé (Google Health)
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Google Health Connect (Android) ne fournit pas d'API cloud. La synchronisation utilise l'API <b>Google Fit</b>. Générez un access token OAuth avec les scopes <code>fitness.activity.read fitness.body.read fitness.sleep.read</code> et collez-le ici. Si aucun token n'est fourni, vous pouvez toujours saisir vos données manuellement.
+            </p>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={health.enabled} onChange={(e) => setHealth({ ...health, enabled: e.target.checked })} id="ghealth" />
+              <Label htmlFor="ghealth">Activer la synchronisation Google Fit</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Client ID (informatif)</Label>
+              <Input value={health.clientId} onChange={(e) => setHealth({ ...health, clientId: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Access Token {health.hasToken && <span className="text-xs text-muted-foreground">(défini)</span>}</Label>
+              <Input type="password" value={health.accessToken} onChange={(e) => setHealth({ ...health, accessToken: e.target.value })} placeholder={health.hasToken ? "••••••••" : ""} />
+            </div>
+            <div className="space-y-2">
+              <Label>Refresh Token (optionnel)</Label>
+              <Input type="password" value={health.refreshToken} onChange={(e) => setHealth({ ...health, refreshToken: e.target.value })} />
+            </div>
+            <Button size="sm" onClick={async () => {
+              await saveHealthConfig({ enabled: health.enabled, clientId: health.clientId, accessToken: health.accessToken || undefined, refreshToken: health.refreshToken || undefined });
+              const c = await loadHealthConfig();
+              setHealth((h) => ({ ...h, enabled: c.enabled, clientId: c.clientId, hasToken: c.hasToken, accessToken: "", refreshToken: "" }));
+              toast.success("Configuration santé enregistrée");
+            }}>Enregistrer</Button>
+          </AccordionContent>
+        </AccordionItem>
+
         {/* Identifiants */}
         <AccordionItem value="credentials" className="border rounded-lg px-4 border-b">
           <AccordionTrigger className="text-base font-semibold hover:no-underline">
