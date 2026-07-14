@@ -217,7 +217,7 @@ export default function TestPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-foreground">Test</h1>
+        <h1 className="text-2xl font-bold text-foreground">Habits</h1>
         <Button onClick={() => setShowAdd(!showAdd)} className="gap-1.5">
           <Plus className="h-4 w-4" /> Nouvelle habitude
         </Button>
@@ -250,7 +250,7 @@ export default function TestPage() {
                 sumS > 0 ? "text-green-700 dark:text-green-400"
                   : sumS < 0 ? "text-red-700 dark:text-red-400"
                   : "text-foreground"
-              )}>Σ S = {sumS}</span>
+              )}>Σ Bonus = {sumS}</span>
               <span className="text-xs text-muted-foreground">dynamique</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/50">
@@ -266,7 +266,7 @@ export default function TestPage() {
       {showAdd && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Nouvelle habitude (dynamique S)</CardTitle>
+            <CardTitle className="text-base">Nouvelle habitude (Bonus)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -302,19 +302,19 @@ export default function TestPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">S max (≥ 0)</label>
+                <label className="text-xs font-medium text-muted-foreground">Bonus max (≥ 0)</label>
                 <Input type="number" value={newHabit.sMax} onChange={e => setNewHabit({ ...newHabit, sMax: Number(e.target.value) })} className="mt-1" />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">S min (≤ 0)</label>
+                <label className="text-xs font-medium text-muted-foreground">Bonus min (≤ 0)</label>
                 <Input type="number" value={newHabit.sMin} onChange={e => setNewHabit({ ...newHabit, sMin: Number(e.target.value) })} className="mt-1" />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">ΔS+ (succès)</label>
+                <label className="text-xs font-medium text-muted-foreground">ΔBonus+ (succès)</label>
                 <Input type="number" value={newHabit.dSPos} onChange={e => setNewHabit({ ...newHabit, dSPos: Number(e.target.value) })} className="mt-1" />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">ΔS− (échec)</label>
+                <label className="text-xs font-medium text-muted-foreground">ΔBonus− (échec)</label>
                 <Input type="number" value={newHabit.dSNeg} onChange={e => setNewHabit({ ...newHabit, dSNeg: Number(e.target.value) })} className="mt-1" />
               </div>
             </div>
@@ -375,7 +375,7 @@ export default function TestPage() {
                     currentS > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                       : currentS < 0 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                       : "bg-muted text-muted-foreground"
-                  )}>S = {Math.round(currentS * 100) / 100}</span>
+                  )}>Bonus = {Math.round(currentS * 100) / 100}</span>
                   <span className="text-xs font-semibold text-foreground">{hTotal} pts</span>
                   <span className="text-xs text-muted-foreground">{rate18}% 18j</span>
                   <span className="text-xs text-muted-foreground">{rate90}% 90j</span>
@@ -452,9 +452,9 @@ export default function TestPage() {
                   {/* Barre S */}
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>S min {habit.sMin}</span>
-                      <span className="font-semibold text-foreground">S = {Math.round(currentS * 100) / 100}</span>
-                      <span>S max {habit.sMax}</span>
+                      <span>Bonus min {habit.sMin}</span>
+                      <span className="font-semibold text-foreground">Bonus = {Math.round(currentS * 100) / 100}</span>
+                      <span>Bonus max {habit.sMax}</span>
                     </div>
                     <div className="relative h-2 rounded-full bg-muted overflow-hidden">
                       {(() => {
@@ -486,19 +486,19 @@ export default function TestPage() {
                   {isEditing && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
-                        <label className="text-xs text-muted-foreground">S max</label>
+                        <label className="text-xs text-muted-foreground">Bonus max</label>
                         <Input type="number" value={editForm.sMax ?? 0} onChange={e => setEditForm({ ...editForm, sMax: Number(e.target.value) })} className="h-7 text-xs" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground">S min</label>
+                        <label className="text-xs text-muted-foreground">Bonus min</label>
                         <Input type="number" value={editForm.sMin ?? 0} onChange={e => setEditForm({ ...editForm, sMin: Number(e.target.value) })} className="h-7 text-xs" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground">ΔS+</label>
+                        <label className="text-xs text-muted-foreground">ΔBonus+</label>
                         <Input type="number" value={editForm.dSPos ?? 0} onChange={e => setEditForm({ ...editForm, dSPos: Number(e.target.value) })} className="h-7 text-xs" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground">ΔS−</label>
+                        <label className="text-xs text-muted-foreground">ΔBonus−</label>
                         <Input type="number" value={editForm.dSNeg ?? 0} onChange={e => setEditForm({ ...editForm, dSNeg: Number(e.target.value) })} className="h-7 text-xs" />
                       </div>
                     </div>
