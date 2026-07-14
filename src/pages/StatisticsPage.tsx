@@ -143,7 +143,7 @@ export default function StatisticsPage() {
   const [chartType, setChartType] = useState<"line" | "bar">("line");
   const [visibleParams, setVisibleParams] = useState<string[]>([]);
   const [activeDot, setActiveDot] = useState(false);
-  const [showRegression, setShowRegression] = useState(false);
+  const [showRegression, setShowRegression] = useState(true);
 
   useEffect(() => {
     async function load() {
