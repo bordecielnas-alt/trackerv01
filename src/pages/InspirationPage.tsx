@@ -31,7 +31,7 @@ export default function InspirationPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Lightbulb className="h-6 w-6 text-secondary" /> Plan
+          <Lightbulb className="h-6 w-6 text-secondary" /> To Do
         </h1>
         <div className="text-xs text-muted-foreground flex items-center gap-1.5 h-6">
           {status === "saving" && (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enregistrement…</>)}

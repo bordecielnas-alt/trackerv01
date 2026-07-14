@@ -4,19 +4,20 @@ import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { useShowHealthTab, useShowDashboardTab } from "@/lib/ui-prefs";
+import { useTabVisible, type TabKey } from "@/lib/ui-prefs";
 
-const baseNavItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, optional: "dashboard" as const },
-  { to: "/", label: "Daily", icon: CalendarDays },
-  { to: "/routine", label: "Routine", icon: Clock },
-  { to: "/test", label: "Habits", icon: RefreshCw },
-  { to: "/health", label: "Health", icon: Activity, optional: "health" as const },
-  { to: "/correlation", label: "Correlation", icon: TrendingUp },
-  { to: "/todo", label: "To Do", icon: ListTodo },
-  { to: "/inspiration", label: "Plan", icon: Lightbulb },
-  { to: "/calendar", label: "Calendrier", icon: CalendarRange },
-  { to: "/statistics", label: "Statistiques", icon: BarChart3 },
+type NavItem = { to: string; label: string; icon: typeof CalendarDays; tab?: TabKey };
+const baseNavItems: NavItem[] = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tab: "dashboard" },
+  { to: "/", label: "Daily", icon: CalendarDays, tab: "daily" },
+  { to: "/routine", label: "Routine", icon: Clock, tab: "routine" },
+  { to: "/test", label: "Habits", icon: RefreshCw, tab: "habits" },
+  { to: "/health", label: "Health", icon: Activity, tab: "health" },
+  { to: "/correlation", label: "Correlation", icon: TrendingUp, tab: "correlation" },
+  { to: "/todo", label: "Projet", icon: ListTodo, tab: "todo" },
+  { to: "/inspiration", label: "To Do", icon: Lightbulb, tab: "plan" },
+  { to: "/calendar", label: "Calendrier", icon: CalendarRange, tab: "calendar" },
+  { to: "/statistics", label: "Statistiques", icon: BarChart3, tab: "statistics" },
   { to: "/settings", label: "Réglages", icon: Settings },
 ];
 
@@ -25,15 +26,30 @@ interface AppLayoutProps {
   onLogout: () => void;
 }
 
+function NavItemLink({ item, collapsed, isActive }: { item: NavItem; collapsed: boolean; isActive: boolean }) {
+  const [visible] = useTabVisible((item.tab ?? "daily") as TabKey);
+  if (item.tab && !visible) return null;
+  return (
+    <NavLink
+      to={item.to}
+      className={cn(
+        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-sidebar-accent text-sidebar-primary"
+          : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+        collapsed && "justify-center px-0"
+      )}
+      title={collapsed ? item.label : undefined}
+    >
+      <item.icon className="h-4 w-4 shrink-0" />
+      {!collapsed && <span>{item.label}</span>}
+    </NavLink>
+  );
+}
+
 export default function AppLayout({ children, onLogout }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const [showHealth] = useShowHealthTab();
-  const [showDashboard] = useShowDashboardTab();
-  const navItems = baseNavItems.filter((i) =>
-    (i.optional !== "health" || showHealth) &&
-    (i.optional !== "dashboard" || showDashboard)
-  );
 
   const handleLogout = () => {
     logout();
@@ -42,7 +58,6 @@ export default function AppLayout({ children, onLogout }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside
         className={cn(
           "sticky top-0 h-screen border-r border-sidebar-border bg-sidebar flex flex-col transition-all duration-200 z-50 shrink-0",
@@ -61,25 +76,9 @@ export default function AppLayout({ children, onLogout }: AppLayoutProps) {
         </div>
 
         <nav className="flex-1 flex flex-col gap-0.5 py-2 px-2 overflow-y-auto">
-          {navItems.map((item) => {
+          {baseNavItems.map((item) => {
             const isActive = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                  collapsed && "justify-center px-0"
-                )}
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </NavLink>
-            );
+            return <NavItemLink key={item.to} item={item} collapsed={collapsed} isActive={isActive} />;
           })}
         </nav>
 
@@ -99,7 +98,6 @@ export default function AppLayout({ children, onLogout }: AppLayoutProps) {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-auto">{children}</main>
     </div>
   );
