@@ -212,7 +212,7 @@ export default function CorrelationPage() {
                         <SelectItem value="archived">Archivé</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input className="h-7 text-xs border-0 min-w-[8ch]" style={{ width: `${Math.max(it.name.length + 2, 10)}ch` }} value={it.name}
+                    <Input className="h-7 text-xs border-0" style={{ width: `${Math.max((it.name || "").length + 4, 14)}ch` }} value={it.name}
                       onChange={(e) => setData({ ...data, items: data.items.map(x => x.id === it.id ? { ...x, name: e.target.value } : x) })}
                       onBlur={() => saveCorrelation(data)} />
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeItem(it.id)}>

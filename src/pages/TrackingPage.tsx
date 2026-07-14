@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { format, addDays, subDays as subDaysDate } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Save, ChevronLeft, ChevronRight, TableProperties } from "lucide-react";
+import { CalendarIcon, Save, ChevronLeft, ChevronRight, TableProperties, Minus, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useDailyInputMode } from "@/lib/ui-prefs";
 import {
   getSettingsAsync,
   getEntriesAsync,
@@ -31,6 +33,7 @@ export default function TrackingPage() {
   const [comment, setComment] = useState("");
   const [formula, setFormula] = useState("");
   const [isExistingEntry, setIsExistingEntry] = useState(false);
+  const [inputMode] = useDailyInputMode();
 
   const loadData = useCallback(async () => {
     const settings = await getSettingsAsync();
@@ -135,28 +138,45 @@ export default function TrackingPage() {
           <CardContent className="space-y-6">
             {parameters
               .sort((a, b) => a.order - b.order)
-              .map((p) => (
+              .map((p) => {
+                const cur = values[p.id] ?? p.defaultValue;
+                const setVal = (n: number) => setValues((prev) => ({ ...prev, [p.id]: Math.max(p.min, Math.min(p.max, n)) }));
+                return (
                 <div key={p.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-foreground">{p.name}</label>
                     <span className="text-sm font-semibold text-primary tabular-nums">
-                      {values[p.id] ?? p.defaultValue}
+                      {cur}
                     </span>
                   </div>
-                  <Slider
-                    value={[values[p.id] ?? p.defaultValue]}
-                    onValueChange={(v) => handleValueChange(p.id, v)}
-                    min={p.min}
-                    max={p.max}
-                    step={p.step}
-                    className="cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{p.min}</span>
-                    <span>{p.max}</span>
-                  </div>
+                  {inputMode === "slider" && (
+                    <>
+                      <Slider value={[cur]} onValueChange={(v) => setVal(v[0])} min={p.min} max={p.max} step={p.step} className="cursor-pointer" />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{p.min}</span><span>{p.max}</span>
+                      </div>
+                    </>
+                  )}
+                  {inputMode === "buttons" && (
+                    <div className="flex flex-wrap gap-1">
+                      {Array.from({ length: Math.floor((p.max - p.min) / p.step) + 1 }, (_, i) => p.min + i * p.step).map((n) => (
+                        <Button key={n} size="sm" variant={cur === n ? "default" : "outline"} className="h-8 min-w-8 px-2" onClick={() => setVal(n)}>{n}</Button>
+                      ))}
+                    </div>
+                  )}
+                  {inputMode === "stepper" && (
+                    <div className="flex items-center gap-2">
+                      <Button size="icon" variant="outline" onClick={() => setVal(cur - p.step)}><Minus className="h-4 w-4" /></Button>
+                      <div className="flex-1 text-center text-lg font-semibold tabular-nums">{cur}</div>
+                      <Button size="icon" variant="outline" onClick={() => setVal(cur + p.step)}><Plus className="h-4 w-4" /></Button>
+                    </div>
+                  )}
+                  {inputMode === "input" && (
+                    <Input type="number" min={p.min} max={p.max} step={p.step} value={cur} onChange={(e) => setVal(Number(e.target.value))} />
+                  )}
                 </div>
-              ))}
+                );
+              })}
           </CardContent>
         </Card>
       )}

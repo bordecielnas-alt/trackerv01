@@ -53,6 +53,16 @@ export const THEME_PALETTE: ThemePalette[] = [
   { id: "forest",      label: "Forêt nuit",    bg: { h: 160, s: 20, l: 12 }, isDark: true },
   { id: "indigo",      label: "Indigo nuit",   bg: { h: 240, s: 30, l: 14 }, isDark: true },
   { id: "espresso",    label: "Expresso",      bg: { h: 25,  s: 18, l: 14 }, isDark: true },
+  { id: "obsidian",    label: "Obsidienne",    bg: { h: 0,   s: 0,  l: 8  }, isDark: true },
+  { id: "abyss",       label: "Abysse",        bg: { h: 210, s: 40, l: 8  }, isDark: true },
+  { id: "wine",        label: "Vin nuit",      bg: { h: 345, s: 30, l: 12 }, isDark: true },
+  { id: "amethyst",    label: "Améthyste",     bg: { h: 275, s: 30, l: 14 }, isDark: true },
+  { id: "carbon",      label: "Carbone",       bg: { h: 210, s: 4,  l: 10 }, isDark: true },
+  { id: "teal-night",  label: "Sarcelle nuit", bg: { h: 180, s: 30, l: 12 }, isDark: true },
+  { id: "plum",        label: "Prune",         bg: { h: 300, s: 20, l: 13 }, isDark: true },
+  { id: "slate",       label: "Ardoise",      bg: { h: 215, s: 20, l: 18 }, isDark: true },
+  { id: "moss",        label: "Mousse nuit",   bg: { h: 100, s: 18, l: 13 }, isDark: true },
+  { id: "cobalt",      label: "Cobalt",        bg: { h: 225, s: 45, l: 15 }, isDark: true },
 ];
 
 function hslStr(h: number, s: number, l: number) {
