@@ -294,7 +294,7 @@ export default function StatisticsPage() {
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
-                  <Legend />
+                  {/* legend removed */}
                   <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={activeDot ? { r: 3 } : false} />
                   {showRegression && (
                     <Line type="monotone" dataKey="Score (tendance)" stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
@@ -306,7 +306,7 @@ export default function StatisticsPage() {
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
-                  <Legend />
+                  {/* legend removed */}
                   <Bar dataKey="Score" fill="hsl(174, 60%, 32%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               )}
