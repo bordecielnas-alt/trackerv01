@@ -504,3 +504,14 @@ function ThemeSwatch({ palette, active, onClick }: { palette: typeof THEME_PALET
     </button>
   );
 }
+
+function TabToggle({ tabKey, label }: { tabKey: Parameters<typeof useTabVisible>[0]; label: string }) {
+  const [visible, setVisible] = useTabVisible(tabKey);
+  const id = `show-tab-${tabKey}`;
+  return (
+    <div className="flex items-center gap-2 rounded-md border p-2">
+      <input type="checkbox" checked={visible} onChange={(e) => setVisible(e.target.checked)} id={id} />
+      <Label htmlFor={id} className="cursor-pointer text-sm">{label}</Label>
+    </div>
+  );
+}
