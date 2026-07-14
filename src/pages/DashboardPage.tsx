@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { LayoutDashboard } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { LayoutDashboard, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown } from "lucide-react";
 import { format, parseISO, subDays, isAfter } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   getSettingsAsync, getEntriesAsync, computeScore,
@@ -14,7 +15,7 @@ import {
 } from "@/lib/tracking-store";
 import { apiGet } from "@/lib/api";
 
-// --- Types locaux (dupliqués depuis TestPage / TodoPage) ---
+// --- Types ---
 interface TestHabit {
   id: string; name: string; color: string;
   completions: Record<string, boolean>;
@@ -80,6 +81,57 @@ function computeSeries(habit: TestHabit) {
   return { currentS: S, pointsByDate, totalPoints: Math.round(total * 100) / 100 };
 }
 
+// --- Trend badge (like Statistics) ---
+interface TrendInfo {
+  current: number | null; change: number | null; changePercent: number | null;
+  direction: "up" | "down" | "flat"; avg: number | null; min: number | null; max: number | null;
+}
+function computeTrend(data: Record<string, unknown>[], key: string): TrendInfo {
+  const values = data.map(d => d[key] as number).filter(v => v !== null && v !== undefined && !isNaN(v));
+  if (values.length === 0) return { current: null, change: null, changePercent: null, direction: "flat", avg: null, min: null, max: null };
+  const current = values[values.length - 1];
+  const half = Math.floor(values.length / 2);
+  const recentAvg = values.slice(half).reduce((a, b) => a + b, 0) / (values.length - half);
+  const olderAvg = values.slice(0, half || 1).reduce((a, b) => a + b, 0) / (half || 1);
+  const change = Math.round((recentAvg - olderAvg) * 100) / 100;
+  const changePercent = olderAvg !== 0 ? Math.round((change / Math.abs(olderAvg)) * 10000) / 100 : null;
+  const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length * 100) / 100;
+  const min = Math.round(Math.min(...values) * 100) / 100;
+  const max = Math.round(Math.max(...values) * 100) / 100;
+  const direction = Math.abs(change) < 0.01 ? "flat" : change > 0 ? "up" : "down";
+  return { current, change, changePercent, direction, avg, min, max };
+}
+function TrendBadge({ trend }: { trend: TrendInfo }) {
+  if (trend.current === null) return null;
+  const isGood = trend.direction === "up";
+  const isBad = trend.direction === "down";
+  return (
+    <div className="flex items-center gap-3 flex-wrap text-xs">
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Dernier:</span>
+        <span className="font-semibold text-foreground">{trend.current}</span>
+      </div>
+      {trend.change !== null && (
+        <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full font-medium",
+          isGood ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+          isBad ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+          "bg-muted text-muted-foreground")}>
+          {trend.direction === "up" ? <TrendingUp className="h-3 w-3" /> :
+           trend.direction === "down" ? <TrendingDown className="h-3 w-3" /> :
+           <Minus className="h-3 w-3" />}
+          <span>{trend.change > 0 ? "+" : ""}{trend.change}</span>
+          {trend.changePercent !== null && <span>({trend.changePercent > 0 ? "+" : ""}{trend.changePercent}%)</span>}
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span>Moy: <span className="font-medium text-foreground">{trend.avg}</span></span>
+        <span className="flex items-center gap-0.5"><ArrowDown className="h-3 w-3" />{trend.min}</span>
+        <span className="flex items-center gap-0.5"><ArrowUp className="h-3 w-3" />{trend.max}</span>
+      </div>
+    </div>
+  );
+}
+
 interface TipItem { name: string; value: number | string; color: string; payload?: Record<string, unknown> }
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TipItem[]; label?: string }) {
   if (!active || !payload?.length) return null;
@@ -100,6 +152,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 const RANGE_DAYS = 90;
+const CHART_COLORS = ["hsl(174, 60%, 32%)", "hsl(35, 80%, 56%)", "hsl(280, 50%, 50%)", "hsl(200, 60%, 50%)", "hsl(340, 60%, 50%)"];
 
 export default function DashboardPage() {
   const [parameters, setParameters] = useState<TrackingParameter[]>([]);
@@ -107,6 +160,9 @@ export default function DashboardPage() {
   const [formula, setFormula] = useState("");
   const [habits, setHabits] = useState<TestHabit[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [visibleParams, setVisibleParams] = useState<string[]>([]);
+  const commentRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     (async () => {
@@ -120,35 +176,48 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  // Score chart 3 mois + régression
-  const scoreData = useMemo(() => {
+  // Filtered entries in window (sorted asc)
+  const windowEntries = useMemo(() => {
     const start = subDays(new Date(), RANGE_DAYS);
-    const rows = entries
+    return entries
       .filter(e => isAfter(parseISO(e.date), start))
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((e, i) => ({
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [entries]);
+
+  // Score chart data with regression + optional params
+  const scoreData = useMemo(() => {
+    const rows = windowEntries.map((e, i) => {
+      const row: Record<string, unknown> = {
         date: format(parseISO(e.date), "dd/MM", { locale: fr }),
+        _isoDate: e.date,
         index: i,
         _comment: e.comment || "",
         Score: computeScore(e.values, parameters, formula),
-      }));
+      };
+      parameters.forEach(p => { row[p.name] = e.values[p.id] ?? null; });
+      return row;
+    });
     const pts = rows.map((d, i) => ({ x: i, y: d.Score as number })).filter(p => p.y != null && !isNaN(p.y));
     const reg = linearRegression(pts);
-    if (reg) rows.forEach((r, i) => { (r as Record<string, unknown>)["Tendance"] = Math.round((reg.slope * i + reg.intercept) * 100) / 100; });
+    if (reg) rows.forEach((r, i) => { r["Tendance"] = Math.round((reg.slope * i + reg.intercept) * 100) / 100; });
     return rows;
-  }, [entries, parameters, formula]);
+  }, [windowEntries, parameters, formula]);
 
-  // Commentaires (jusqu'à 3 mois)
-  const recentComments = useMemo(() => {
-    const start = subDays(new Date(), RANGE_DAYS);
-    return entries
-      .filter(e => e.comment?.trim() && isAfter(parseISO(e.date), start))
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [entries]);
+  const scoreTrend = useMemo(() => computeTrend(scoreData, "Score"), [scoreData]);
+
+  const recentComments = useMemo(() =>
+    [...windowEntries].filter(e => e.comment?.trim()).sort((a, b) => b.date.localeCompare(a.date)),
+    [windowEntries]);
+
+  // Sync : when selectedDate change, scroll to comment
+  useEffect(() => {
+    if (!selectedDate) return;
+    const el = commentRefs.current[selectedDate];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [selectedDate]);
 
   const last90 = useMemo(() => getLastNDays(90), []);
 
-  // To Do : reprise exacte de la logique du graphique de TodoPage
   const CHART_ZONE_ORDER: Task["zone"][] = ["persistent", "inprogress"];
   const chartTasks = CHART_ZONE_ORDER.flatMap(z => tasks.filter(t => t.zone === z));
   const chartGroups = chartTasks
@@ -159,6 +228,14 @@ export default function DashboardPage() {
   const COL_WIDTH = 12;
   const STICKY_COL_WIDTH = 160;
 
+  const toggleParam = (id: string) => setVisibleParams(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+
+  const onChartClick = (data: unknown) => {
+    const d = data as { activePayload?: { payload?: { _isoDate?: string } }[] };
+    const iso = d?.activePayload?.[0]?.payload?._isoDate;
+    if (iso) setSelectedDate(iso);
+  };
+
   return (
     <div className="space-y-4 max-w-[1400px] mx-auto">
       <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -168,39 +245,82 @@ export default function DashboardPage() {
       {/* Ligne du haut : commentaires 1/3 + score 2/3 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-1">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Commentaires récents (3 mois)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Commentaires récents</CardTitle></CardHeader>
           <CardContent>
-            <ScrollArea className="h-[300px] pr-3">
+            <ScrollArea className="h-[340px] pr-3">
               {recentComments.length === 0 && <div className="text-sm text-muted-foreground">Aucun commentaire.</div>}
               <div className="space-y-3">
-                {recentComments.map(e => (
-                  <div key={e.date} className="border-l-2 border-primary/40 pl-2">
-                    <div className="text-xs font-semibold text-primary">
-                      {format(parseISO(e.date), "EEEE d MMMM", { locale: fr })}
+                {recentComments.map(e => {
+                  const active = selectedDate === e.date;
+                  return (
+                    <div
+                      key={e.date}
+                      ref={(el) => { commentRefs.current[e.date] = el; }}
+                      onClick={() => setSelectedDate(e.date)}
+                      className={cn(
+                        "border-l-2 pl-2 cursor-pointer transition-colors rounded-r-md py-1 pr-1",
+                        active ? "border-primary bg-primary/10" : "border-primary/40 hover:bg-accent/40"
+                      )}
+                    >
+                      <div className="text-xs font-semibold text-primary">
+                        {format(parseISO(e.date), "EEEE d MMMM", { locale: fr })}
+                      </div>
+                      <div className="text-xs text-foreground whitespace-pre-wrap">{e.comment}</div>
                     </div>
-                    <div className="text-xs text-foreground whitespace-pre-wrap">{e.comment}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Score (3 mois) + régression linéaire</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Score</CardTitle>
+            <TrendBadge trend={scoreTrend} />
+            {parameters.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {parameters.map((p, i) => (
+                  <Button
+                    key={p.id}
+                    variant={visibleParams.includes(p.id) ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => toggleParam(p.id)}
+                    style={visibleParams.includes(p.id) ? { backgroundColor: CHART_COLORS[i % CHART_COLORS.length] } : {}}
+                  >
+                    {p.name}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </CardHeader>
           <CardContent>
             {scoreData.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">Pas de données</p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={scoreData}>
+                <LineChart data={scoreData} onClick={onChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }} />
-                  <Legend />
-                  <Line type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2} dot={false} />
+                  <Line
+                    type="monotone" dataKey="Score" stroke="hsl(174, 60%, 32%)" strokeWidth={2}
+                    dot={(props: { cx?: number; cy?: number; payload?: { _isoDate?: string }; index?: number }) => {
+                      const iso = props.payload?._isoDate;
+                      const active = iso && iso === selectedDate;
+                      const key = `dot-${props.index ?? iso ?? Math.random()}`;
+                      return active
+                        ? <circle key={key} cx={props.cx} cy={props.cy} r={5} fill="hsl(174, 60%, 32%)" stroke="hsl(var(--background))" strokeWidth={2} />
+                        : <circle key={key} cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                    }}
+                    activeDot={{ r: 5 }}
+                  />
                   <Line type="monotone" dataKey="Tendance" stroke="hsl(0, 72%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                  {parameters.filter(p => visibleParams.includes(p.id)).map((p, i) => (
+                    <Line key={p.id} type="monotone" dataKey={p.name} stroke={CHART_COLORS[parameters.findIndex(pp => pp.id === p.id) % CHART_COLORS.length]} strokeWidth={1.5} dot={false} strokeOpacity={0.8} />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -210,7 +330,7 @@ export default function DashboardPage() {
 
       {/* Habits synthèse */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Habits (synthèse — 90 j)</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Habits</CardTitle></CardHeader>
         <CardContent>
           {habits.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune habitude.</p>
@@ -227,7 +347,7 @@ export default function DashboardPage() {
                       s.currentS > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                         : s.currentS < 0 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                         : "bg-muted text-muted-foreground"
-                    )}>S = {Math.round(s.currentS * 100) / 100}</span>
+                    )}>Bonus = {Math.round(s.currentS * 100) / 100}</span>
                     <span className="text-xs font-semibold text-foreground shrink-0 w-16 tabular-nums">{s.totalPoints} pts</span>
                     <div className="flex-1 flex gap-[2px] overflow-x-auto">
                       {last90.map(d => {
@@ -258,7 +378,7 @@ export default function DashboardPage() {
       {/* To Do — Graphique tâches actives */}
       {chartGroups.length > 0 && (
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Tâches actives — 90 j</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Tâches actives</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <div className="inline-block" style={{ width: STICKY_COL_WIDTH + chartDates.length * COL_WIDTH }}>
