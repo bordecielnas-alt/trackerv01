@@ -1,32 +1,34 @@
 import { useEffect, useState } from "react";
 
-const KEY = "tracker-show-health-tab";
 const EVT = "tracker-ui-prefs-change";
 
-export function getShowHealthTab(): boolean {
-  try {
-    const v = localStorage.getItem(KEY);
-    return v == null ? false : v === "1";
-  } catch { return false; }
+function makePref(key: string, defaultVal: boolean) {
+  const get = (): boolean => {
+    try { const v = localStorage.getItem(key); return v == null ? defaultVal : v === "1"; }
+    catch { return defaultVal; }
+  };
+  const set = (v: boolean) => {
+    try { localStorage.setItem(key, v ? "1" : "0"); window.dispatchEvent(new CustomEvent(EVT)); } catch {}
+  };
+  const use = () => {
+    const [val, setVal] = useState<boolean>(() => get());
+    useEffect(() => {
+      const h = () => setVal(get());
+      window.addEventListener(EVT, h);
+      window.addEventListener("storage", h);
+      return () => { window.removeEventListener(EVT, h); window.removeEventListener("storage", h); };
+    }, []);
+    return [val, (nv: boolean) => set(nv)] as const;
+  };
+  return { get, set, use };
 }
 
-export function setShowHealthTab(v: boolean) {
-  try {
-    localStorage.setItem(KEY, v ? "1" : "0");
-    window.dispatchEvent(new CustomEvent(EVT));
-  } catch {}
-}
+const health = makePref("tracker-show-health-tab", false);
+export const getShowHealthTab = health.get;
+export const setShowHealthTab = health.set;
+export const useShowHealthTab = health.use;
 
-export function useShowHealthTab() {
-  const [v, setV] = useState<boolean>(() => getShowHealthTab());
-  useEffect(() => {
-    const h = () => setV(getShowHealthTab());
-    window.addEventListener(EVT, h);
-    window.addEventListener("storage", h);
-    return () => {
-      window.removeEventListener(EVT, h);
-      window.removeEventListener("storage", h);
-    };
-  }, []);
-  return [v, (nv: boolean) => setShowHealthTab(nv)] as const;
-}
+const dashboard = makePref("tracker-show-dashboard-tab", true);
+export const getShowDashboardTab = dashboard.get;
+export const setShowDashboardTab = dashboard.set;
+export const useShowDashboardTab = dashboard.use;
