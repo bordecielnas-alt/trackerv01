@@ -132,48 +132,37 @@ export default function TrackingPage() {
         </Card>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Paramètres</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="pt-6 space-y-3">
             {parameters
               .sort((a, b) => a.order - b.order)
               .map((p) => {
                 const cur = values[p.id] ?? p.defaultValue;
                 const setVal = (n: number) => setValues((prev) => ({ ...prev, [p.id]: Math.max(p.min, Math.min(p.max, n)) }));
                 return (
-                <div key={p.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground">{p.name}</label>
-                    <span className="text-sm font-semibold text-primary tabular-nums">
-                      {cur}
-                    </span>
-                  </div>
-                  {inputMode === "slider" && (
-                    <>
+                <div key={p.id} className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-foreground w-32 shrink-0 truncate" title={p.name}>{p.name}</label>
+                  <div className="flex-1 min-w-0">
+                    {inputMode === "slider" && (
                       <Slider value={[cur]} onValueChange={(v) => setVal(v[0])} min={p.min} max={p.max} step={p.step} className="cursor-pointer" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{p.min}</span><span>{p.max}</span>
+                    )}
+                    {inputMode === "buttons" && (
+                      <div className="flex flex-wrap gap-1">
+                        {Array.from({ length: Math.floor((p.max - p.min) / p.step) + 1 }, (_, i) => p.min + i * p.step).map((n) => (
+                          <Button key={n} size="sm" variant={cur === n ? "default" : "outline"} className="h-7 min-w-7 px-2" onClick={() => setVal(n)}>{n}</Button>
+                        ))}
                       </div>
-                    </>
-                  )}
-                  {inputMode === "buttons" && (
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from({ length: Math.floor((p.max - p.min) / p.step) + 1 }, (_, i) => p.min + i * p.step).map((n) => (
-                        <Button key={n} size="sm" variant={cur === n ? "default" : "outline"} className="h-8 min-w-8 px-2" onClick={() => setVal(n)}>{n}</Button>
-                      ))}
-                    </div>
-                  )}
-                  {inputMode === "stepper" && (
-                    <div className="flex items-center gap-2">
-                      <Button size="icon" variant="outline" onClick={() => setVal(cur - p.step)}><Minus className="h-4 w-4" /></Button>
-                      <div className="flex-1 text-center text-lg font-semibold tabular-nums">{cur}</div>
-                      <Button size="icon" variant="outline" onClick={() => setVal(cur + p.step)}><Plus className="h-4 w-4" /></Button>
-                    </div>
-                  )}
-                  {inputMode === "input" && (
-                    <Input type="number" min={p.min} max={p.max} step={p.step} value={cur} onChange={(e) => setVal(Number(e.target.value))} />
-                  )}
+                    )}
+                    {inputMode === "stepper" && (
+                      <div className="flex items-center gap-2">
+                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setVal(cur - p.step)}><Minus className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setVal(cur + p.step)}><Plus className="h-4 w-4" /></Button>
+                      </div>
+                    )}
+                    {inputMode === "input" && (
+                      <Input type="number" min={p.min} max={p.max} step={p.step} value={cur} onChange={(e) => setVal(Number(e.target.value))} className="h-8" />
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold text-primary tabular-nums w-10 text-right shrink-0">{cur}</span>
                 </div>
                 );
               })}

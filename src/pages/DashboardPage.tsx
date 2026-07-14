@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LayoutDashboard, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown } from "lucide-react";
+import { Link } from "react-router-dom";
+import { LayoutDashboard, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, BarChart3 } from "lucide-react";
 import { format, parseISO, subDays, isAfter } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -276,7 +277,12 @@ export default function DashboardPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Score</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">Score</CardTitle>
+              <Button asChild variant="outline" size="sm" className="h-7 gap-1.5">
+                <Link to="/statistics"><BarChart3 className="h-3.5 w-3.5" /> Détail</Link>
+              </Button>
+            </div>
             <TrendBadge trend={scoreTrend} />
             {parameters.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-2">
