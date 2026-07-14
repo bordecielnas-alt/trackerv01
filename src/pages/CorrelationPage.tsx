@@ -142,7 +142,7 @@ export default function CorrelationPage() {
 
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Input placeholder="Nouvel item (ex: lourdeur repas, difficulté à dormir)" value={newName}
+          <Input placeholder="Variable à analyser" value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addItem(); }} />
           <Button onClick={addItem} size="sm" className="gap-1"><Plus className="h-4 w-4" /> Ajouter</Button>
@@ -212,7 +212,7 @@ export default function CorrelationPage() {
                         <SelectItem value="archived">Archivé</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input className="h-7 text-xs border-0" value={it.name}
+                    <Input className="h-7 text-xs border-0 min-w-[8ch]" style={{ width: `${Math.max(it.name.length + 2, 10)}ch` }} value={it.name}
                       onChange={(e) => setData({ ...data, items: data.items.map(x => x.id === it.id ? { ...x, name: e.target.value } : x) })}
                       onBlur={() => saveCorrelation(data)} />
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeItem(it.id)}>

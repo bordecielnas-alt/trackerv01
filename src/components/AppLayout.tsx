@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { CalendarDays, Settings, BarChart3, LogOut, Clock, ListTodo, PanelLeft, Lightbulb, CalendarRange, RefreshCw, Activity, TrendingUp } from "lucide-react";
+import { CalendarDays, Settings, BarChart3, LogOut, Clock, ListTodo, PanelLeft, Lightbulb, CalendarRange, RefreshCw, Activity, TrendingUp, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { useShowHealthTab } from "@/lib/ui-prefs";
+import { useShowHealthTab, useShowDashboardTab } from "@/lib/ui-prefs";
 
 const baseNavItems = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, optional: "dashboard" as const },
   { to: "/", label: "Daily", icon: CalendarDays },
   { to: "/routine", label: "Routine", icon: Clock },
   { to: "/test", label: "Habits", icon: RefreshCw },
@@ -28,7 +29,11 @@ export default function AppLayout({ children, onLogout }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [showHealth] = useShowHealthTab();
-  const navItems = baseNavItems.filter((i) => i.optional !== "health" || showHealth);
+  const [showDashboard] = useShowDashboardTab();
+  const navItems = baseNavItems.filter((i) =>
+    (i.optional !== "health" || showHealth) &&
+    (i.optional !== "dashboard" || showDashboard)
+  );
 
   const handleLogout = () => {
     logout();

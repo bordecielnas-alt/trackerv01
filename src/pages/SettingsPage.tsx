@@ -28,7 +28,7 @@ import { updateCredentials, getCurrentUsername } from "@/lib/auth-store";
 import { THEME_PALETTE, useTheme } from "@/lib/theme-store";
 import { loadCaldavConfig, saveCaldavConfig, testCaldav } from "@/lib/caldav-store";
 import { loadHealthConfig, saveHealthConfig } from "@/lib/health-store";
-import { useShowHealthTab } from "@/lib/ui-prefs";
+import { useShowHealthTab, useShowDashboardTab } from "@/lib/ui-prefs";
 import { cn } from "@/lib/utils";
 
 const emptyParam = (): TrackingParameter => ({
@@ -63,6 +63,7 @@ export default function SettingsPage() {
   // Google Health
   const [health, setHealth] = useState({ enabled: false, clientId: "", accessToken: "", refreshToken: "", hasToken: false });
   const [showHealthTab, setShowHealthTabPref] = useShowHealthTab();
+  const [showDashboardTab, setShowDashboardTabPref] = useShowDashboardTab();
 
   useEffect(() => {
     getSettingsAsync().then(setSettings);
@@ -251,6 +252,13 @@ export default function SettingsPage() {
                 {darkThemes.map((p) => (
                   <ThemeSwatch key={p.id} palette={p} active={themeId === p.id} onClick={() => { setTheme(p.id); toast.success(`Thème "${p.label}" appliqué`); }} />
                 ))}
+              </div>
+            </div>
+            <div className="pt-3 border-t space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground block">Onglets</Label>
+              <div className="flex items-center gap-2 rounded-md border p-2">
+                <input type="checkbox" checked={showDashboardTab} onChange={(e) => setShowDashboardTabPref(e.target.checked)} id="show-dashboard-tab" />
+                <Label htmlFor="show-dashboard-tab" className="cursor-pointer">Afficher l'onglet Dashboard dans le menu latéral</Label>
               </div>
             </div>
           </AccordionContent>

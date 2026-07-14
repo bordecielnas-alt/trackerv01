@@ -20,6 +20,7 @@ import InspirationPage from "@/pages/InspirationPage";
 import CalendarPage from "@/pages/CalendarPage";
 import HealthPage from "@/pages/HealthPage";
 import CorrelationPage from "@/pages/CorrelationPage";
+import DashboardPage from "@/pages/DashboardPage";
 
 import NotFound from "@/pages/NotFound";
 
@@ -61,6 +62,7 @@ const App = () => {
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/health" element={<HealthPage />} />
               <Route path="/correlation" element={<CorrelationPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
