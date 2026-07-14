@@ -27,6 +27,7 @@ import {
 import { updateCredentials, getCurrentUsername } from "@/lib/auth-store";
 import { THEME_PALETTE, useTheme } from "@/lib/theme-store";
 import { loadCaldavConfig, saveCaldavConfig, testCaldav } from "@/lib/caldav-store";
+import { loadHealthConfig, saveHealthConfig } from "@/lib/health-store";
 import { cn } from "@/lib/utils";
 
 const emptyParam = (): TrackingParameter => ({
@@ -58,10 +59,14 @@ export default function SettingsPage() {
   const [caldav, setCaldav] = useState({ url: "", username: "", calendarName: "", password: "", hasPassword: false });
   const [testing, setTesting] = useState(false);
 
+  // Google Health
+  const [health, setHealth] = useState({ enabled: false, clientId: "", accessToken: "", refreshToken: "", hasToken: false });
+
   useEffect(() => {
     getSettingsAsync().then(setSettings);
     getCurrentUsername().then(setNewUsername);
     loadCaldavConfig().then((c) => setCaldav({ ...c, password: "" }));
+    loadHealthConfig().then((c) => setHealth((h) => ({ ...h, enabled: c.enabled, clientId: c.clientId, hasToken: c.hasToken })));
   }, []);
 
   const handleSaveFormula = async () => {
@@ -290,6 +295,40 @@ export default function SettingsPage() {
                 <Plug className="h-3.5 w-3.5" /> {testing ? "Test…" : "Tester la connexion"}
               </Button>
             </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Google Health */}
+        <AccordionItem value="health" className="border rounded-lg px-4 border-b">
+          <AccordionTrigger className="text-base font-semibold hover:no-underline">
+            Santé (Google Health)
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Google Health Connect (Android) ne fournit pas d'API cloud. La synchronisation utilise l'API <b>Google Fit</b>. Générez un access token OAuth avec les scopes <code>fitness.activity.read fitness.body.read fitness.sleep.read</code> et collez-le ici. Si aucun token n'est fourni, vous pouvez toujours saisir vos données manuellement.
+            </p>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={health.enabled} onChange={(e) => setHealth({ ...health, enabled: e.target.checked })} id="ghealth" />
+              <Label htmlFor="ghealth">Activer la synchronisation Google Fit</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Client ID (informatif)</Label>
+              <Input value={health.clientId} onChange={(e) => setHealth({ ...health, clientId: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Access Token {health.hasToken && <span className="text-xs text-muted-foreground">(défini)</span>}</Label>
+              <Input type="password" value={health.accessToken} onChange={(e) => setHealth({ ...health, accessToken: e.target.value })} placeholder={health.hasToken ? "••••••••" : ""} />
+            </div>
+            <div className="space-y-2">
+              <Label>Refresh Token (optionnel)</Label>
+              <Input type="password" value={health.refreshToken} onChange={(e) => setHealth({ ...health, refreshToken: e.target.value })} />
+            </div>
+            <Button size="sm" onClick={async () => {
+              await saveHealthConfig({ enabled: health.enabled, clientId: health.clientId, accessToken: health.accessToken || undefined, refreshToken: health.refreshToken || undefined });
+              const c = await loadHealthConfig();
+              setHealth((h) => ({ ...h, enabled: c.enabled, clientId: c.clientId, hasToken: c.hasToken, accessToken: "", refreshToken: "" }));
+              toast.success("Configuration santé enregistrée");
+            }}>Enregistrer</Button>
           </AccordionContent>
         </AccordionItem>
 

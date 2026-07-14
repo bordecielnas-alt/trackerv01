@@ -18,6 +18,8 @@ import TodoPage from "@/pages/TodoPage";
 import TestPage from "@/pages/TestPage";
 import InspirationPage from "@/pages/InspirationPage";
 import CalendarPage from "@/pages/CalendarPage";
+import HealthPage from "@/pages/HealthPage";
+import CorrelationPage from "@/pages/CorrelationPage";
 
 import NotFound from "@/pages/NotFound";
 
@@ -57,6 +59,8 @@ const App = () => {
               <Route path="/test" element={<TestPage />} />
               <Route path="/inspiration" element={<InspirationPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/health" element={<HealthPage />} />
+              <Route path="/correlation" element={<CorrelationPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
