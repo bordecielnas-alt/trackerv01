@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useShowHealthTab } from "@/lib/ui-prefs";
 
-const navItems = [
+const baseNavItems = [
   { to: "/", label: "Daily", icon: CalendarDays },
   { to: "/routine", label: "Routine", icon: Clock },
   { to: "/test", label: "Habits", icon: RefreshCw },
-  { to: "/health", label: "Health", icon: Activity },
+  { to: "/health", label: "Health", icon: Activity, optional: "health" as const },
   { to: "/correlation", label: "Correlation", icon: TrendingUp },
   { to: "/todo", label: "To Do", icon: ListTodo },
   { to: "/inspiration", label: "Plan", icon: Lightbulb },
@@ -26,6 +27,8 @@ interface AppLayoutProps {
 export default function AppLayout({ children, onLogout }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const [showHealth] = useShowHealthTab();
+  const navItems = baseNavItems.filter((i) => i.optional !== "health" || showHealth);
 
   const handleLogout = () => {
     logout();
