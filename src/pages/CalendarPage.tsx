@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchEvents, CaldavEvent, syncCaldav, createEvent, updateEvent, deleteEvent, EventPayload } from "@/lib/caldav-store";
+import { fetchEvents, CaldavEvent, syncCaldav, createEvent, updateEvent, deleteEvent, EventPayload, Scope } from "@/lib/caldav-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, CalendarRange, AlertCircle, RefreshCw, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarRange, AlertCircle, RefreshCw, Plus, Pencil, Trash2, Repeat } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import EventDialog from "@/components/calendar/EventDialog";
+import RecurrenceScopeDialog from "@/components/calendar/RecurrenceScopeDialog";
 import { toast } from "@/hooks/use-toast";
 
 type View = "month" | "week" | "day";
@@ -27,6 +28,7 @@ export default function CalendarPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CaldavEvent | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [scopeDialog, setScopeDialog] = useState<{ open: boolean; action: "edit" | "delete"; ev: CaldavEvent | null }>({ open: false, action: "edit", ev: null });
   const qc = useQueryClient();
 
   const { from, to } = useMemo(() => {
@@ -78,11 +80,17 @@ export default function CalendarPage() {
   };
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
-  const openEdit = (ev: CaldavEvent) => { setEditing(ev); setDialogOpen(true); };
+  const openEdit = (ev: CaldavEvent) => {
+    if (ev.recurring) { setScopeDialog({ open: true, action: "edit", ev }); return; }
+    setEditing(ev); setDialogOpen(true);
+  };
 
   const handleSubmit = async (payload: EventPayload) => {
     if (editing) {
-      await updateEvent(editing.uid, payload);
+      // If editing was requested with single scope, we stashed the occurrence on editing._url via a marker
+      const scope: Scope = (editing as any)._scope || "series";
+      const occ = (editing as any)._occurrence;
+      await updateEvent(editing.uid, payload, scope, occ);
       toast({ title: "Évènement modifié" });
     } else {
       await createEvent(payload);
@@ -92,6 +100,7 @@ export default function CalendarPage() {
   };
 
   const handleDelete = async (ev: CaldavEvent) => {
+    if (ev.recurring) { setScopeDialog({ open: true, action: "delete", ev }); return; }
     if (!confirm(`Supprimer "${ev.title}" ?`)) return;
     try {
       await deleteEvent(ev.uid);
@@ -99,6 +108,22 @@ export default function CalendarPage() {
       await qc.invalidateQueries({ queryKey: ["caldav"] });
     } catch (e: any) {
       toast({ title: "Erreur de suppression", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  const handleScopePick = async (scope: Scope) => {
+    const ev = scopeDialog.ev; if (!ev) return;
+    if (scopeDialog.action === "delete") {
+      try {
+        await deleteEvent(ev.uid, scope, ev.occurrence || ev.start);
+        toast({ title: scope === "series" ? "Série supprimée" : "Occurrence supprimée" });
+        await qc.invalidateQueries({ queryKey: ["caldav"] });
+      } catch (e: any) {
+        toast({ title: "Erreur de suppression", description: e?.message, variant: "destructive" });
+      }
+    } else {
+      const marked: CaldavEvent & { _scope?: Scope; _occurrence?: string } = { ...ev, _scope: scope, _occurrence: ev.occurrence || ev.start };
+      setEditing(marked); setDialogOpen(true);
     }
   };
 
@@ -154,11 +179,24 @@ export default function CalendarPage() {
         defaultDate={cursor}
         onSubmit={handleSubmit}
       />
+      <RecurrenceScopeDialog
+        open={scopeDialog.open}
+        onOpenChange={(o) => setScopeDialog(s => ({ ...s, open: o }))}
+        action={scopeDialog.action}
+        onPick={handleScopePick}
+      />
     </div>
   );
 }
 
-function eventColor() { return "bg-primary/15 text-primary border-l-2 border-primary"; }
+function eventStyle(color?: string | null): React.CSSProperties {
+  if (!color) return {};
+  return { backgroundColor: `${color}26`, color, borderLeftColor: color };
+}
+function eventClass(color?: string | null) {
+  if (color) return "border-l-2";
+  return "bg-primary/15 text-primary border-l-2 border-primary";
+}
 
 interface ChipActions {
   onEdit: (ev: CaldavEvent) => void;
@@ -171,9 +209,10 @@ function EventChip({ ev, full, onEdit, onDelete }: { ev: CaldavEvent; full?: boo
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className={cn("w-full text-left text-[11px] px-1.5 py-0.5 rounded truncate hover:opacity-80", eventColor())}>
-          {!ev.allDay && !full && <span className="font-medium mr-1">{fmtTime(start)}</span>}
-          {ev.title}
+        <button style={eventStyle(ev.color)} className={cn("w-full text-left text-[11px] px-1.5 py-0.5 rounded truncate hover:opacity-80 flex items-center gap-1", eventClass(ev.color))}>
+          {ev.recurring && <Repeat className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+          {!ev.allDay && !full && <span className="font-medium">{fmtTime(start)}</span>}
+          <span className="truncate">{ev.title}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80">

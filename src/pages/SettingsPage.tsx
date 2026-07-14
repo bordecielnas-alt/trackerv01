@@ -27,6 +27,7 @@ import {
 import { updateCredentials, getCurrentUsername } from "@/lib/auth-store";
 import { THEME_PALETTE, useTheme } from "@/lib/theme-store";
 import { loadCaldavConfig, saveCaldavConfig, testCaldav } from "@/lib/caldav-store";
+import { loadHealthConfig, saveHealthConfig } from "@/lib/health-store";
 import { cn } from "@/lib/utils";
 
 const emptyParam = (): TrackingParameter => ({
@@ -58,10 +59,14 @@ export default function SettingsPage() {
   const [caldav, setCaldav] = useState({ url: "", username: "", calendarName: "", password: "", hasPassword: false });
   const [testing, setTesting] = useState(false);
 
+  // Google Health
+  const [health, setHealth] = useState({ enabled: false, clientId: "", accessToken: "", refreshToken: "", hasToken: false });
+
   useEffect(() => {
     getSettingsAsync().then(setSettings);
     getCurrentUsername().then(setNewUsername);
     loadCaldavConfig().then((c) => setCaldav({ ...c, password: "" }));
+    loadHealthConfig().then((c) => setHealth((h) => ({ ...h, enabled: c.enabled, clientId: c.clientId, hasToken: c.hasToken })));
   }, []);
 
   const handleSaveFormula = async () => {
