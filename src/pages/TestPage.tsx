@@ -251,7 +251,7 @@ export default function TestPage() {
                   : sumS < 0 ? "text-red-700 dark:text-red-400"
                   : "text-foreground"
               )}>Σ Bonus = {sumS}</span>
-              <span className="text-xs text-muted-foreground">dynamique</span>
+              <span className="text-xs text-muted-foreground">bonus</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/50">
               <Target className="h-4 w-4 text-primary" />
