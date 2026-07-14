@@ -28,7 +28,7 @@ import { updateCredentials, getCurrentUsername } from "@/lib/auth-store";
 import { THEME_PALETTE, useTheme } from "@/lib/theme-store";
 import { loadCaldavConfig, saveCaldavConfig, testCaldav } from "@/lib/caldav-store";
 import { loadHealthConfig, saveHealthConfig } from "@/lib/health-store";
-import { useShowHealthTab, useShowDashboardTab } from "@/lib/ui-prefs";
+import { useShowHealthTab, useShowDashboardTab, useDailyInputMode, type DailyInputMode } from "@/lib/ui-prefs";
 import { cn } from "@/lib/utils";
 
 const emptyParam = (): TrackingParameter => ({
@@ -64,6 +64,7 @@ export default function SettingsPage() {
   const [health, setHealth] = useState({ enabled: false, clientId: "", accessToken: "", refreshToken: "", hasToken: false });
   const [showHealthTab, setShowHealthTabPref] = useShowHealthTab();
   const [showDashboardTab, setShowDashboardTabPref] = useShowDashboardTab();
+  const [dailyInputMode, setDailyInputModePref] = useDailyInputMode();
 
   useEffect(() => {
     getSettingsAsync().then(setSettings);
@@ -260,6 +261,17 @@ export default function SettingsPage() {
                 <input type="checkbox" checked={showDashboardTab} onChange={(e) => setShowDashboardTabPref(e.target.checked)} id="show-dashboard-tab" />
                 <Label htmlFor="show-dashboard-tab" className="cursor-pointer">Afficher l'onglet Dashboard dans le menu latéral</Label>
               </div>
+            </div>
+            <div className="pt-3 border-t space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground block">Saisie Daily</Label>
+              <div className="flex flex-wrap gap-2">
+                {(["slider", "buttons", "stepper", "input"] as DailyInputMode[]).map((m) => (
+                  <Button key={m} size="sm" variant={dailyInputMode === m ? "default" : "outline"} onClick={() => setDailyInputModePref(m)}>
+                    {m === "slider" ? "Curseurs" : m === "buttons" ? "Boutons" : m === "stepper" ? "+/−" : "Champ numérique"}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Choix de l'outil de saisie utilisé dans l'onglet Daily.</p>
             </div>
           </AccordionContent>
         </AccordionItem>
