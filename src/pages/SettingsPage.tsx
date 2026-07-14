@@ -28,6 +28,7 @@ import { updateCredentials, getCurrentUsername } from "@/lib/auth-store";
 import { THEME_PALETTE, useTheme } from "@/lib/theme-store";
 import { loadCaldavConfig, saveCaldavConfig, testCaldav } from "@/lib/caldav-store";
 import { loadHealthConfig, saveHealthConfig } from "@/lib/health-store";
+import { useShowHealthTab } from "@/lib/ui-prefs";
 import { cn } from "@/lib/utils";
 
 const emptyParam = (): TrackingParameter => ({
@@ -61,6 +62,7 @@ export default function SettingsPage() {
 
   // Google Health
   const [health, setHealth] = useState({ enabled: false, clientId: "", accessToken: "", refreshToken: "", hasToken: false });
+  const [showHealthTab, setShowHealthTabPref] = useShowHealthTab();
 
   useEffect(() => {
     getSettingsAsync().then(setSettings);
@@ -304,8 +306,12 @@ export default function SettingsPage() {
             Santé (Google Health)
           </AccordionTrigger>
           <AccordionContent className="space-y-3 pt-2">
+            <div className="flex items-center gap-2 rounded-md border p-2">
+              <input type="checkbox" checked={showHealthTab} onChange={(e) => setShowHealthTabPref(e.target.checked)} id="show-health-tab" />
+              <Label htmlFor="show-health-tab" className="cursor-pointer">Afficher l'onglet Health dans le menu latéral</Label>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Google Health Connect (Android) ne fournit pas d'API cloud. La synchronisation utilise l'API <b>Google Fit</b>. Générez un access token OAuth avec les scopes <code>fitness.activity.read fitness.body.read fitness.sleep.read</code> et collez-le ici. Si aucun token n'est fourni, vous pouvez toujours saisir vos données manuellement.
+              L'onglet Health est masqué par défaut. La synchronisation Google Fit REST reste disponible mais sera dépréciée par Google (remplacement par Health Connect Android-only, sans API cloud). Configuration conservée pour reprise ultérieure.
             </p>
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={health.enabled} onChange={(e) => setHealth({ ...health, enabled: e.target.checked })} id="ghealth" />
