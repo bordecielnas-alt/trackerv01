@@ -386,7 +386,7 @@ export default function TodoPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-foreground">To Do</h1>
+        <h1 className="text-2xl font-bold text-foreground">Projet</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={toggleExpandAll} className="gap-1.5">
             {allExpanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
