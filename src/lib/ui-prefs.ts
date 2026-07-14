@@ -32,3 +32,22 @@ const dashboard = makePref("tracker-show-dashboard-tab", true);
 export const getShowDashboardTab = dashboard.get;
 export const setShowDashboardTab = dashboard.set;
 export const useShowDashboardTab = dashboard.use;
+
+// Daily input UI mode: slider | buttons | stepper | input
+export type DailyInputMode = "slider" | "buttons" | "stepper" | "input";
+export function getDailyInputMode(): DailyInputMode {
+  try { const v = localStorage.getItem("tracker-daily-input-mode"); return (v as DailyInputMode) || "slider"; } catch { return "slider"; }
+}
+export function setDailyInputMode(v: DailyInputMode) {
+  try { localStorage.setItem("tracker-daily-input-mode", v); window.dispatchEvent(new CustomEvent(EVT)); } catch {}
+}
+export function useDailyInputMode() {
+  const [val, setVal] = useState<DailyInputMode>(() => getDailyInputMode());
+  useEffect(() => {
+    const h = () => setVal(getDailyInputMode());
+    window.addEventListener(EVT, h);
+    window.addEventListener("storage", h);
+    return () => { window.removeEventListener(EVT, h); window.removeEventListener("storage", h); };
+  }, []);
+  return [val, (nv: DailyInputMode) => setDailyInputMode(nv)] as const;
+}
